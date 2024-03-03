@@ -1,0 +1,6 @@
+.ghc.environment*
+dist-newstyle/
+static/main.js
+static/*Component.js
+static/alerts_*
+elm-stuff
