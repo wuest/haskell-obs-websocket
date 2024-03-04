@@ -1,28 +1,24 @@
-cabal-version:      2.4
-name:               obs-websocket
-version:            5.0.0.0
+cabal-version: 2.4
+name:          obs-websocket
+version:       0.0.0.1
 
--- A short (one-line) description of the package.
-synopsis: OBS Websocket client
+synopsis:      OBS Websocket client
+description:   Library for control of OBS via its websocket interface
+category:      Web
 
--- A longer description of the package.
-description: Library for control of OBS via its websocket interface
+author:        Tina Wuest
+maintainer:    tina@wuest.me
+copyright:     2024 Tina Wuest
+license:       BSD-3-Clause
 
--- A URL where users can report bugs.
--- bug-reports:
+bug-reports: https://github.com/wuest/haskell-obs-websocket/issues
 
--- The license under which the package is released.
--- license:
-author:             Tina Wuest
-maintainer:         tina@wuest.me
-
--- A copyright notice.
-copyright: 2024 Tina Wuest
--- category:
-extra-source-files: CHANGELOG.md
+source-repository head
+  type: git
+  location: https://github.com/wuest/haskell-obs-websocket.git
 
 library
-  ghc-options:      -Wall -fwarn-implicit-prelude -fwarn-monomorphism-restriction -O2 -static
+  ghc-options:      -Wall -fwarn-implicit-prelude -fwarn-monomorphism-restriction -static
   default-language: Haskell2010
   default-extensions: LambdaCase
                     , OverloadedStrings
@@ -34,6 +30,6 @@ library
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
-  build-depends:    base >=4.15 && < 5
+  build-depends:    base >= 4.9   && < 5
                   , aeson >= 2.1  && < 2.3
                   --, websockets ^>= 0.13.0.0
