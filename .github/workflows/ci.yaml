@@ -26,7 +26,7 @@ jobs:
           cabal-version: ${{ matrix.cabal }}
 
       - name: Restore cached dependencies
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         id: cache
         env:
           key: ${{ matrix.os }}-ghc-${{ matrix.ghc }}-cabal-${{ matrix.cabal }}
@@ -40,7 +40,7 @@ jobs:
         run: cabal v2-build all --only-dependencies
 
       - name: Save cached dependencies
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v4
         if: steps.cache.outputs.cache-hit != 'true'
         with:
           path: ${{ steps.setup.outputs.cabal-store }}
