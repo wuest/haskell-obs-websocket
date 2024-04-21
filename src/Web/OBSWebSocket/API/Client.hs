@@ -16,10 +16,17 @@ Messages sent to OBS's WebSocket interface
 
 import Prelude
 
-import Data.Aeson    ( ToJSON(..), (.=), object
-                     , Object
-                     )
-import Data.Bits     ( (.|.) )
+import Data.Aeson ( ToJSON(..), (.=), object
+                  , Object
+                  )
+import Data.Bits  ( (.|.) )
+
+import Data.ByteString.Char8      ( fromStrict, toStrict )
+import Data.ByteString.Lazy.Char8 ( append, pack, unpack )
+import Data.Digest.Pure.SHA       ( sha256 )
+
+import qualified Data.Binary as Binary            ( encode )
+import qualified Data.ByteString.Base64 as Base64 ( encode )
 
 
 data EventType = General
@@ -37,6 +44,7 @@ data EventType = General
                | InputActiveStateChanged
                | InputShowStateChanged
                | SceneItemTransformChanged
+               deriving ( Show )
 eventNum :: EventType -> Integer
 eventNum General = 0x001
 eventNum Config = 0x002
@@ -70,7 +78,7 @@ data ClientMessage = Identify { clientRPCVersion :: Integer
                                   , haltOnFailure :: Maybe Bool
                                   , executionType :: Maybe Integer
                                   , requests :: [Object]
-                                  }
+                                  } deriving ( Show )
 
 instance ToJSON ClientMessage where
     toJSON Identify{..} =
@@ -100,3 +108,9 @@ instance ToJSON ClientMessage where
                                , "requests" .= requests
                                ]
                ]
+
+genAuthString :: String -> String -> String -> String
+genAuthString salt challenge pass =
+    let step1 = fromStrict . Base64.encode . toStrict . Binary.encode . sha256 . pack $ pass ++ salt
+        step2 = Base64.encode . toStrict . Binary.encode . sha256 $ append step1 $ pack challenge
+     in unpack $ fromStrict step2
