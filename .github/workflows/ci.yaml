@@ -11,7 +11,6 @@ jobs:
     strategy:
       matrix:
         ghc: ['8.6', '8.10', '9.0']
-        cabal: ['3.0.0.0']
         os: ['ubuntu-latest']
     runs-on: ${{ matrix.os }}
     name: Build obs-websocket using GHC ${{ matrix.ghc }}
