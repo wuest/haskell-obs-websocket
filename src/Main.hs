@@ -42,12 +42,12 @@ eatMyData conn = do
     eatMyData conn
 
 authenticate :: Maybe String -> Maybe OBS.Message -> Maybe Client.ClientMessage
-authenticate (Just pass) (Just OBS.Hello { OBS.authenticationChallenge = Just (OBS.AuthChallenge { OBS.challenge = challenge, OBS.salt = salt }) }) =
+authenticate (Just pass) (Just (OBS.Hello OBS.HelloMessage { OBS.authenticationChallenge = Just (OBS.AuthChallenge { OBS.challenge = challenge, OBS.salt = salt }) })) =
     Just Client.Identify { Client.clientRPCVersion = 1
                          , Client.authenticationRequest = Just $ Client.genAuthString salt challenge pass
                          , Client.eventSubscriptions = []
                          }
-authenticate _ (Just OBS.Hello { OBS.authenticationChallenge = Nothing }) =
+authenticate _ (Just (OBS.Hello OBS.HelloMessage { OBS.authenticationChallenge = Nothing })) =
     Just Client.Identify { Client.clientRPCVersion = 1
                          , Client.authenticationRequest = Nothing
                          , Client.eventSubscriptions = []

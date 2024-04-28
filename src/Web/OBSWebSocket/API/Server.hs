@@ -170,6 +170,11 @@ instance FromJSON VolumeMeter where
         levels <- o .: "inputLevelsMul"
         return VolumeMeter{..}
 
+data HelloMessage = HelloMessage { obsWebSocketVersion :: String
+                                 , remoteRPCVersion :: Integer
+                                 , authenticationChallenge :: Maybe AuthChallenge
+                                 } deriving ( Show )
+
 data ServerEvent = ExitStarted -- OBS has begun the shutdown process.
                  | VendorEvent { vendorName :: String -- An event has been emitted from a vendor.
                                , eventType :: String -- A vendor is a unique name registered by a third-party plugin or script, which allows for custom requests and events to be added to obs-websocket. If a plugin or script implements vendor requests or events, documentation is expected to be provided with them.
@@ -752,18 +757,20 @@ instance FromJSON ServerEvent where
               return $ ScreenshotSaved savedScreenshotPath
           _ -> mzero
 
-data Message = Hello { obsWebSocketVersion :: String
-                     , remoteRPCVersion :: Integer
-                     , authenticationChallenge :: Maybe AuthChallenge
-                     }
-             | Identified { negotiatedRPCVersion :: Integer }
+data RequestResponse = RequestResponse { status :: RequestStatus
+                                       , responseData :: Maybe Object
+                                       } deriving ( Show )
+
+data RequestBatchResponse = RequestBatchResponse { batchResponseId :: String
+                                                 , results :: [Object]
+                                                 } deriving ( Show )
+
+data Message = Hello HelloMessage
+             | Identified Integer
              | Event ServerEvent
-             | RequestResponse { status :: RequestStatus
-                               , responseData :: Maybe Object
-                               }
-             | RequestBatchResponse { batchResponseId :: String
-                                    , results :: [Object]
-                                    } deriving ( Show )
+             | Response RequestResponse
+             | BatchResponse RequestBatchResponse
+             deriving ( Show )
 instance FromJSON Message where
     parseJSON = withObject "OBSMessage" $ \o -> do
         o .: "op" >>= \(opcode :: Integer) ->
@@ -780,21 +787,21 @@ hello o = do
     obsWebSocketVersion <- o .: "obsWebSocketVersion"
     remoteRPCVersion <- o .: "rpcVersion"
     authenticationChallenge <- o .:? "authentication"
-    return Hello{..}
+    return $ Hello $ HelloMessage{..}
 
 identified :: OBSMessageParser
 identified o = do
     negotiatedRPCVersion <- o .: "negotiatedRpcVersion"
-    return Identified{..}
+    return $ Identified negotiatedRPCVersion
 
 response :: OBSMessageParser
 response o = do
     status <- o .: ""
     responseData <- o .:? "responseData"
-    return RequestResponse{..}
+    return $ Response RequestResponse{..}
 
 batchResponse :: OBSMessageParser
 batchResponse o = do
     batchResponseId <- o .: "requestId"
     results <- o .: "results"
-    return RequestBatchResponse{..}
+    return $ BatchResponse RequestBatchResponse{..}
