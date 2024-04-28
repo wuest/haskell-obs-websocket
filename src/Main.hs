@@ -4,14 +4,14 @@ import Prelude
 
 import Control.Monad.Trans ( liftIO )
 import Data.Functor        ( (<&>) )
-import Data.Text           ( Text )
+--import Data.Text           ( Text )
 import Network.Socket      ( withSocketsDo )
 
 import qualified Data.Text.Lazy          as Text ( toStrict )
 import qualified Data.Text.Lazy.Encoding as Text ( decodeUtf8 )
 
 import qualified Data.Aeson         as JSON
-import qualified Data.Text          as Text
+--import qualified Data.Text          as Text
 import qualified Network.WebSockets as WS
 
 import qualified Opts
@@ -27,8 +27,12 @@ app password conn = do
     (y :: Maybe OBS.Message) <- WS.receiveData conn <&> JSON.decode
     liftIO $ print y
     _ <- WS.sendTextData conn . Text.toStrict . Text.decodeUtf8 . JSON.encode $ Just Client.Reidentify { Client.newEventSubscriptions = [ ] }
+    _ <- WS.sendTextData conn . Text.toStrict . Text.decodeUtf8 . JSON.encode $
+        Just Client.Request { Client.requestId = "Hello", Client.requestData = Client.SetRecordDirectory "/home/wuest/Videos" }
+
     eatMyData conn -- debugging :')
 
+eatMyData :: WS.Connection -> IO ()
 eatMyData conn = do
     y <- WS.receiveData conn
     liftIO $ print y
@@ -37,6 +41,7 @@ eatMyData conn = do
     liftIO $ print z
     eatMyData conn
 
+authenticate :: Maybe String -> Maybe OBS.Message -> Maybe Client.ClientMessage
 authenticate (Just pass) (Just OBS.Hello { OBS.authenticationChallenge = Just (OBS.AuthChallenge { OBS.challenge = challenge, OBS.salt = salt }) }) =
     Just Client.Identify { Client.clientRPCVersion = 1
                          , Client.authenticationRequest = Just $ Client.genAuthString salt challenge pass

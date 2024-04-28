@@ -24,6 +24,107 @@ import Data.Aeson ( FromJSON(..), (.:), (.:?), withObject
                   , Object
                   )
 
+-- GetVersion
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetVersion\",\"responseData\":{\"availableRequests\":[\"OpenSourceProjector\",\"OpenInputInteractDialog\",\"OpenInputFiltersDialog\",\"OpenInputPropertiesDialog\",\"OffsetMediaInputCursor\",\"GetMediaInputStatus\",\"ResumeRecord\",\"StopRecord\",\"SetInputAudioSyncOffset\",\"GetSceneSceneTransitionOverride\",\"SetInputSettings\",\"GetInputDefaultSettings\",\"StopOutput\",\"StopStream\",\"GetInputSettings\",\"SetCurrentSceneTransitionDuration\",\"SetInputName\",\"CreateInput\",\"TriggerHotkeyByKeySequence\",\"SetSceneSceneTransitionOverride\",\"SetSceneName\",\"RemoveScene\",\"GetInputList\",\"SetCurrentPreviewScene\",\"BroadcastCustomEvent\",\"ToggleRecordPause\",\"GetVirtualCamStatus\",\"SetCurrentSceneTransitionSettings\",\"PauseRecord\",\"GetSceneItemTransform\",\"GetCurrentProgramScene\",\"SetCurrentSceneTransition\",\"GetSceneItemPrivateSettings\",\"SetSourceFilterSettings\",\"SetInputVolume\",\"GetStreamServiceSettings\",\"GetCurrentSceneTransition\",\"SaveReplayBuffer\",\"SetSourcePrivateSettings\",\"Sleep\",\"StartRecord\",\"StartOutput\",\"StopReplayBuffer\",\"SetStudioModeEnabled\",\"GetHotkeyList\",\"GetSceneItemList\",\"GetStats\",\"GetRecordStatus\",\"ToggleReplayBuffer\",\"GetCurrentPreviewScene\",\"RemoveInput\",\"DuplicateSceneItem\",\"SendStreamCaption\",\"SetCurrentSceneCollection\",\"GetPersistentData\",\"CallVendorRequest\",\"SaveSourceScreenshot\",\"SetInputAudioBalance\",\"GetSceneCollectionList\",\"GetSourceActive\",\"GetGroupList\",\"GetVersion\",\"CreateProfile\",\"GetSourcePrivateSettings\",\"GetProfileParameter\",\"GetSourceScreenshot\",\"SetProfileParameter\",\"OpenVideoMixProjector\",\"GetInputPropertiesListPropertyItems\",\"GetStudioModeEnabled\",\"GetGroupSceneItemList\",\"GetSceneItemEnabled\",\"RemoveSourceFilter\",\"TriggerHotkeyByName\",\"SetVideoSettings\",\"SetMediaInputCursor\",\"SetSourceFilterIndex\",\"SetStreamServiceSettings\",\"SetInputAudioTracks\",\"GetSceneItemId\",\"GetInputAudioBalance\",\"GetRecordDirectory\",\"GetReplayBufferStatus\",\"GetStreamStatus\",\"GetInputMute\",\"SetCurrentProfile\",\"RemoveProfile\",\"ToggleInputMute\",\"SetRecordDirectory\",\"GetInputAudioMonitorType\",\"SetInputAudioMonitorType\",\"GetInputAudioTracks\",\"GetSceneTransitionList\",\"PressInputPropertiesButton\",\"GetInputVolume\",\"GetTransitionKindList\",\"GetMonitorList\",\"CreateSceneCollection\",\"TriggerStudioModeTransition\",\"SetTBarPosition\",\"GetProfileList\",\"SetSceneItemBlendMode\",\"SetInputMute\",\"GetLastReplayBufferReplay\",\"GetSourceFilterKindList\",\"ToggleStream\",\"GetInputKindList\",\"GetSourceFilterList\",\"GetSourceFilterDefaultSettings\",\"GetInputAudioSyncOffset\",\"SetSceneItemLocked\",\"StartStream\",\"CreateSourceFilter\",\"SetSourceFilterName\",\"StartReplayBuffer\",\"GetSourceFilter\",\"SetSourceFilterEnabled\",\"GetSceneItemSource\",\"GetSceneList\",\"SetPersistentData\",\"CreateSceneItem\",\"RemoveSceneItem\",\"TriggerMediaInputAction\",\"SetSceneItemEnabled\",\"SetSceneItemIndex\",\"GetSceneItemLocked\",\"GetSceneItemIndex\",\"GetSceneItemBlendMode\",\"SetSceneItemPrivateSettings\",\"CreateScene\",\"GetCurrentSceneTransitionCursor\",\"ToggleVirtualCam\",\"GetVideoSettings\",\"StartVirtualCam\",\"StopVirtualCam\",\"GetOutputList\",\"GetOutputStatus\",\"SetSceneItemTransform\",\"ToggleOutput\",\"GetOutputSettings\",\"GetSpecialInputs\",\"SetCurrentProgramScene\",\"SetOutputSettings\",\"ToggleRecord\"],\"obsVersion\":\"30.1.2\",\"obsWebSocketVersion\":\"5.4.2\",\"platform\":\"arch\",\"platformDescription\":\"Arch Linux\",\"rpcVersion\":1,\"supportedImageFormats\":[\"bmp\",\"cur\",\"icns\",\"ico\",\"jp2\",\"jpeg\",\"jpg\",\"pbm\",\"pgm\",\"png\",\"ppm\",\"tif\",\"tiff\",\"wbmp\",\"webp\",\"xbm\",\"xpm\"]}},\"op\":7}"
+-- Response Fields:
+-- Name     Type    Description
+-- obsVersion   String  Current OBS Studio version
+-- obsWebSocketVersion  String  Current obs-websocket version
+-- rpcVersion   Number  Current latest obs-websocket RPC version
+-- availableRequests    Array<String>   Array of available RPC requests for the currently negotiated RPC version
+-- supportedImageFormats    Array<String>   Image formats available in GetSourceScreenshot and SaveSourceScreenshot requests.
+-- platform     String  Name of the platform. Usually windows, macos, or ubuntu (linux flavor). Not guaranteed to be any of those
+-- platformDescription  String  Description of the platform, like Windows 10 (10.0)
+--
+--
+-- GetStats
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetStats\",\"responseData\":{\"activeFps\":60.0000024000001,\"availableDiskSpace\":12135541.21484375,\"averageFrameRenderTime\":0.694396,\"cpuUsage\":0.22358791700727937,\"memoryUsage\":413.2578125,\"outputSkippedFrames\":0,\"outputTotalFrames\":0,\"renderSkippedFrames\":5,\"renderTotalFrames\":5209,\"webSocketSessionIncomingMessages\":3,\"webSocketSessionOutgoingMessages\":3}},\"op\":7}"
+-- Response Fields:
+-- Name     Type    Description
+-- cpuUsage     Number  Current CPU usage in percent
+-- memoryUsage  Number  Amount of memory in MB currently being used by OBS
+-- availableDiskSpace   Number  Available disk space on the device being used for recording storage
+-- activeFps    Number  Current FPS being rendered
+-- averageFrameRenderTime   Number  Average time in milliseconds that OBS is taking to render a frame
+-- renderSkippedFrames  Number  Number of frames skipped by OBS in the render thread
+-- renderTotalFrames    Number  Total number of frames outputted by the render thread
+-- outputSkippedFrames  Number  Number of frames skipped by OBS in the output thread
+-- outputTotalFrames    Number  Total number of frames outputted by the output thread
+-- webSocketSessionIncomingMessages     Number  Total number of messages received by obs-websocket from the client
+-- webSocketSessionOutgoingMessages     Number  Total number of messages sent by obs-websocket to the client
+--
+-- GetHotkeyList
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetHotkeyList\",\"responseData\":{\"hotkeys\":[\"OBSBasic.StartStreaming\",\"OBSBasic.StopStreaming\",\"OBSBasic.ForceStopStreaming\",\"OBSBasic.StartRecording\",\"OBSBasic.StopRecording\",\"OBSBasic.PauseRecording\",\"OBSBasic.UnpauseRecording\",\"OBSBasic.SplitFile\",\"OBSBasic.StartReplayBuffer\",\"OBSBasic.StopReplayBuffer\",\"OBSBasic.StartVirtualCam\",\"OBSBasic.StopVirtualCam\",\"OBSBasic.EnablePreview\",\"OBSBasic.DisablePreview\",\"OBSBasic.EnablePreviewProgram\",\"OBSBasic.DisablePreviewProgram\",\"OBSBasic.ShowContextBar\",\"OBSBasic.HideContextBar\",\"OBSBasic.Transition\",\"OBSBasic.ResetStats\",\"OBSBasic.Screenshot\",\"OBSBasic.SelectedSourceScreenshot\",\"OBSBasic.SelectScene\",\"OBSBasic.SelectScene\",\"OBSBasic.SelectScene\",\"OBSBasic.SelectScene\",\"libobs.mute\",\"libobs.unmute\",\"libobs.push-to-mute\",\"libobs.push-to-talk\",\"OBSBasic.SelectScene\",\"libobs.mute\",\"libobs.unmute\",\"libobs.push-to-mute\",\"libobs.push-to-talk\",\"OBSBasic.SelectScene\",\"OBSBasic.SelectScene\",\"OBSBasic.SelectScene\",\"OBSBasic.SelectScene\",\"libobs.mute\",\"libobs.unmute\",\"libobs.push-to-mute\",\"libobs.push-to-talk\",\"ObsBrowser.Refresh\",\"libobs.show_scene_item.4\",\"libobs.hide_scene_item.4\",\"libobs.show_scene_item.3\",\"libobs.hide_scene_item.3\",\"libobs.show_scene_item.5\",\"libobs.hide_scene_item.5\",\"libobs.show_scene_item.2\",\"libobs.hide_scene_item.2\",\"libobs.show_scene_item.3\",\"libobs.hide_scene_item.3\",\"libobs.show_scene_item.3\",\"libobs.hide_scene_item.3\",\"libobs.show_scene_item.1\",\"libobs.hide_scene_item.1\",\"libobs.show_scene_item.6\",\"libobs.hide_scene_item.6\",\"libobs.show_scene_item.1\",\"libobs.hide_scene_item.1\",\"libobs.show_scene_item.1\",\"libobs.hide_scene_item.1\",\"libobs.show_scene_item.2\",\"libobs.hide_scene_item.2\",\"libobs.show_scene_item.4\",\"libobs.hide_scene_item.4\",\"libobs.show_scene_item.1\",\"libobs.hide_scene_item.1\",\"libobs.show_scene_item.2\",\"libobs.hide_scene_item.2\",\"libobs.show_scene_item.3\",\"libobs.hide_scene_item.3\",\"libobs.show_scene_item.8\",\"libobs.hide_scene_item.8\",\"libobs.show_scene_item.2\",\"libobs.hide_scene_item.2\",\"libobs.show_scene_item.4\",\"libobs.hide_scene_item.4\",\"libobs.show_scene_item.1\",\"libobs.hide_scene_item.1\",\"libobs.show_scene_item.2\",\"libobs.hide_scene_item.2\",\"libobs.show_scene_item.4\",\"libobs.hide_scene_item.4\",\"libobs.show_scene_item.4\",\"libobs.hide_scene_item.4\",\"OBSBasic.QuickTransition.4\",\"OBSBasic.QuickTransition.5\",\"OBSBasic.QuickTransition.6\"]}},\"op\":7}"
+-- Response Fields:
+-- Name     Type    Description
+-- hotkeys  Array<String>   Array of hotkey names
+--
+-- TriggerHotkeyByName
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"TriggerHotkeyByName\"},\"op\":7}"
+--
+-- Sleep
+--
+-- SetPersistentData
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"SetPersistentData\"},\"op\":7}"
+--
+-- GetPersistentData
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetPersistentData\",\"responseData\":{\"slotValue\":\"Hello!\"}},\"op\":7}"
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetPersistentData\",\"responseData\":{\"slotValue\":null}},\"op\":7}"
+--
+-- GetSceneCollectionList
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetSceneCollectionList\",\"responseData\":{\"currentSceneCollectionName\":\"Video Capture\",\"sceneCollections\":[\"Baduk (Composited)\",\"Camera Only\",\"Kusogrande\",\"Speedrun Ragnarok 2023 Restream\",\"Speedrun Ragnarok 2023 Runner\",\"Stream (Composited)\",\"Stream (Composited - No Cam)\",\"Video Capture\",\"z - GDQ Runner Scene Collection\"]}},\"op\":7}"
+--
+-- CreateSceneCollection
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"CreateSceneCollection\"},\"op\":7}"
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":601,\"result\":false},\"requestType\":\"CreateSceneCollection\"},\"op\":7}"
+--
+-- SetCurrentSceneCollection
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"SetCurrentSceneCollection\"},\"op\":7}"
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":600,\"result\":false},\"requestType\":\"SetCurrentSceneCollection\"},\"op\":7}"
+--
+-- GetProfileList
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetProfileList\",\"responseData\":{\"currentProfileName\":\"Local Capture\",\"profiles\":[\"Camera Capture\",\"z-GDQ RTMP Hotfix\",\"GDQ Hotfix\",\"Kusogrande\",\"Local Capture\",\"Local Capture (Secondary)\",\"RTMP Test\",\"Speedrun Ragnarok\",\"Stream\",\"z - 1 - GDQ Runner Stream Setup High Resolution\",\"z - GDQ Runner Stream Setup\",\"z - GDQ Stream Real Style\"]}},\"op\":7}"
+--
+-- CreateProfile
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"CreateProfile\"},\"op\":7}"
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":601,\"result\":false},\"requestType\":\"CreateProfile\"},\"op\":7}"
+--
+-- SetCurrentProfile
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"SetCurrentProfile\"},\"op\":7}"
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":600,\"result\":false},\"requestType\":\"SetCurrentProfile\"},\"op\":7}"
+--
+-- RemoveProfile
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":600,\"result\":false},\"requestType\":\"RemoveProfile\"},\"op\":7}"
+--
+--
+-- SetProfileParameter
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"SetProfileParameter\"},\"op\":7}"
+--
+-- GetProfileParameter
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetProfileParameter\",\"responseData\":{\"defaultParameterValue\":null,\"parameterValue\":\"Value\"}},\"op\":7}"
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetProfileParameter\",\"responseData\":{\"defaultParameterValue\":null,\"parameterValue\":null}},\"op\":7}"
+--
+-- GetVideoSettings
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetVideoSettings\",\"responseData\":{\"baseHeight\":1080,\"baseWidth\":1920,\"fpsDenominator\":1,\"fpsNumerator\":60,\"outputHeight\":1080,\"outputWidth\":1920}},\"op\":7}"
+--
+-- SetVideoSettings
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"SetVideoSettings\"},\"op\":7}"
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":402,\"comment\":\"The field value of `baseHeight` is below the minimum of `8.000000`\",\"result\":false},\"requestType\":\"SetVideoSettings\"},\"op\":7}"
+--
+-- GetStreamServiceSettings
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetStreamServiceSettings\",\"responseData\":{\"streamServiceSettings\":{\"bwtest\":false,\"key\":\"5\",\"server\":\"rtmp://45.33.94.88/ap\",\"use_auth\":false},\"streamServiceType\":\"rtmp_custom\"}},\"op\":7}"
+--
+-- SetStreamServiceSettings
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"SetStreamServiceSettings\"},\"op\":7}"
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":700,\"comment\":\"Failed to create the stream service with the requested streamServiceType. It may be an invalid type.\",\"result\":false},\"requestType\":\"SetStreamServiceSettings\"},\"op\":7}"
+--
+-- GetRecordDirectory
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"GetRecordDirectory\",\"responseData\":{\"recordDirectory\":\"/home/wuest\"}},\"op\":7}"
+--
+-- SetRecordDirectory
+-- "{\"d\":{\"requestId\":\"Hello\",\"requestStatus\":{\"code\":100,\"result\":true},\"requestType\":\"SetRecordDirectory\"},\"op\":7}"
+--
+
 import Control.Monad ( mzero )
 import Data.Functor  ( (<&>) )
 
