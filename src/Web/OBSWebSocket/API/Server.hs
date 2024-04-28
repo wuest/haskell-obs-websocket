@@ -175,12 +175,35 @@ data HelloMessage = HelloMessage { obsWebSocketVersion :: String
                                  , authenticationChallenge :: Maybe AuthChallenge
                                  } deriving ( Show )
 
+data VendorData = VendorData { vendorName :: String
+                             , eventType :: String
+                             , eventData :: Object
+                             } deriving ( Show )
+
+data SceneData = SceneData { sceneName :: String
+                           , sceneUuid :: Maybe String
+                           } deriving ( Show )
+
+data InputData = InputData { inputName :: String
+                           , inputUuid :: Maybe String
+                           } deriving ( Show )
+
+data TransitionData = TransitionData { transitionName :: String
+                                     , transitionUuid :: Maybe String
+                                     } deriving ( Show )
+
+data SourceFilter = SourceFilter { sourceName :: String
+                                 , filterName :: String
+                                 } deriving ( Show )
+
+data SourceData = SourceData { sourceName :: String
+                             , sourceUuid :: Maybe String
+                             } deriving ( Show )
+
 data ServerEvent = ExitStarted -- OBS has begun the shutdown process.
-                 | VendorEvent { vendorName :: String -- An event has been emitted from a vendor.
-                               , eventType :: String -- A vendor is a unique name registered by a third-party plugin or script, which allows for custom requests and events to be added to obs-websocket. If a plugin or script implements vendor requests or events, documentation is expected to be provided with them.
-                               , eventData :: Object
-                               }
-                 | CustomEvent { eventData :: Object } -- Custom event emitted by BroadcastCustomEvent.
+                 | VendorEvent VendorData -- An event has been emitted from a vendor.
+                                          -- A vendor is a unique name registered by a third-party plugin or script, which allows for custom requests and events to be added to obs-websocket. If a plugin or script implements vendor requests or events, documentation is expected to be provided with them.
+                 | CustomEvent Object -- Custom event emitted by BroadcastCustomEvent.
                  | CurrentSceneCollectionChanging String -- The current scene collection has begun changing.
                                                          -- Note: We recommend using this event to trigger a pause of all polling requests, as performing any requests during a scene collection change is considered undefined behavior and can cause crashes!
                  | CurrentSceneCollectionChanged String -- The current scene collection has changed.
@@ -189,175 +212,58 @@ data ServerEvent = ExitStarted -- OBS has begun the shutdown process.
                  | CurrentProfileChanging String -- The current profile has begun changing.
                  | CurrentProfileChanged String -- The current profile has changed.
                  | ProfileListChanged [String] -- The profile list has changed.
-                 | SceneCreated { sceneName :: String -- A new scene has been created.
-                                , sceneUuid :: Maybe String
-                                , isGroup :: Bool
-                                }
-                 | SceneRemoved { sceneName :: String -- A scene has been removed.
-                                , sceneUuid :: Maybe String
-                                , isGroup :: Bool
-                                }
-                 | SceneNameChanged { sceneName :: String
-                                    , sceneUuid :: Maybe String -- The name of a scene has changed.
-                                    , oldSceneName :: String
-                                    }
-                 | CurrentProgramSceneChanged { sceneName :: String -- The current program scene has changed.
-                                              , sceneUuid :: Maybe String
-                                              }
-                 | CurrentPreviewSceneChanged { sceneName :: String -- The current preview scene has changed.
-                                              , sceneUuid :: Maybe String
-                                              }
+                 | SceneCreated SceneData Bool -- A new scene has been created.
+                 | SceneRemoved SceneData Bool -- A scene has been removed.
+                 | SceneNameChanged SceneData String -- The name of a scene has changed.
+                 | CurrentProgramSceneChanged SceneData -- The current program scene has changed.
+                 | CurrentPreviewSceneChanged SceneData -- The current preview scene has changed.
                  | SceneListChanged [Object] -- The list of scenes has changed.
-                 | InputCreated { inputName :: String -- An input has been created.
-                                , inputUuid :: Maybe String
-                                , inputKind :: String
-                                , unversionedInputKind :: String
-                                , inputSettings :: Object
-                                , defaultInputSettings :: Object
-                                }
-                 | InputRemoved { inputName :: String -- An input has been removed.
-                                , inputUuid :: Maybe String
-                                }
-                 | InputNameChanged { inputUuid :: Maybe String -- The name of an input has changed.
-                                    , oldInputName :: String
-                                    , inputName :: String
-                                    }
-                 | InputSettingsChanged { inputName :: String -- An input's settings have changed (been updated).
-                                        , inputUuid :: Maybe String -- Note: On some inputs, changing values in the properties dialog will cause an immediate update. Pressing the "Cancel" button will revert the settings, resulting in another event being fired.
-                                        , inputSettings :: Object
-                                        }
-                 | InputActiveStateChanged { inputName :: String -- An input's active state has changed.
-                                           , inputUuid :: Maybe String -- When an input is active, it means it's being shown by the program feed.
-                                           , videoActive :: Bool
-                                           }
-                 | InputShowStateChanged { inputName :: String -- An input's show state has changed.
-                                         , inputUuid :: Maybe String -- When an input is showing, it means it's being shown by the preview or a dialog.
-                                         , videoShowing :: Bool
-                                         }
-                 | InputMuteStateChanged { inputName :: String -- An input's mute state has changed.
-                                         , inputUuid :: Maybe String
-                                         , inputMuted :: Bool
-                                         }
-                 | InputVolumeChanged { inputName :: String -- An input's volume level has changed.
-                                      , inputUuid :: Maybe String
-                                      , inputVolumeMul :: Float
-                                      , inputVolumeDb :: Float
-                                      }
-                 | InputAudioBalanceChanged { inputName :: String -- The audio balance value of an input has changed.
-                                            , inputUuid :: Maybe String
-                                            , inputAudioBalance :: Float
-                                            }
-                 | InputAudioSyncOffsetChanged { inputName :: String -- The sync offset of an input has changed.
-                                               , inputUuid :: Maybe String
-                                               , inputAudioSyncOffset :: Float
-                                               }
-                 | InputAudioTracksChanged { inputName :: String --The audio tracks of an input have changed.
-                                           , inputUuid :: Maybe String
-                                           , inputAudioTracks :: Object
-                                           }
-                 | InputAudioMonitorTypeChanged { inputName :: String -- The monitor type of an input has changed.
-                                                , inputUuid :: Maybe String
-                                                , monitorType :: MonitorType
-                                                }
+                 | InputCreated InputData String String Object Object -- An input has been created.
+                 | InputRemoved InputData -- An input has been removed.
+                 | InputNameChanged InputData String  -- The name of an input has changed.
+                 | InputSettingsChanged InputData Object -- An input's settings have changed (been updated).
+                                                         -- Note: On some inputs, changing values in the properties dialog will cause an immediate update. Pressing the "Cancel" button will revert the settings, resulting in another event being fired.
+                 | InputActiveStateChanged InputData Bool -- An input's active state has changed.
+                                                          -- When an input is active, it means it's being shown by the program feed.
+                 | InputShowStateChanged InputData Bool -- An input's show state has changed.
+                                                        -- When an input is showing, it means it's being shown by the preview or a dialog.
+                 | InputMuteStateChanged InputData Bool -- An input's mute state has changed.
+                 | InputVolumeChanged InputData Float Float -- An input's volume level has changed.
+                 | InputAudioBalanceChanged InputData Float -- The audio balance value of an input has changed.
+                 | InputAudioSyncOffsetChanged InputData Float -- The sync offset of an input has changed.
+                 | InputAudioTracksChanged InputData Object --The audio tracks of an input have changed.
+                 | InputAudioMonitorTypeChanged InputData MonitorType -- The monitor type of an input has changed.
                  | InputVolumeMeters [VolumeMeter] -- A high-volume event providing volume levels of all active inputs every 50 milliseconds.
-                 | CurrentSceneTransitionChanged { transitionName :: String -- The current scene transition has changed.
-                                                 , transitionUuid :: Maybe String
-                                                 }
+                 | CurrentSceneTransitionChanged TransitionData -- The current scene transition has changed.
                  | CurrentSceneTransitionDurationChanged Integer -- The current scene transition duration has changed.
-                 | SceneTransitionStarted { transitionName :: String -- A scene transition has started.
-                                          , transitionUuid :: Maybe String
-                                          }
-                 | SceneTransitionEnded { transitionName :: String -- A scene transition has completed fully.
-                                        , transitionUuid :: Maybe String -- Note: Does not appear to trigger when the transition is interrupted by the user.
-                                        }
-                 | SceneTransitionVideoEnded { transitionName :: String -- A scene transition's video has completed fully.
-                                             , transitionUuid :: Maybe String -- Useful for stinger transitions to tell when the video actually ends. SceneTransitionEnded only signifies the cut point, not the completion of transition playback.
-                                             } -- Note: Appears to be called by every transition, regardless of relevance.
-                 | SourceFilterListReindexed { sourceName :: String -- A source's filter list has been reindexed.
-                                             , filters :: [Object]
-                                             }
-                 | SourceFilterCreated { sourceName :: String -- A filter has been added to a source.
-                                       , filterName :: String
-                                       , filterKind :: String
-                                       , filterIndex :: Integer
-                                       , filterSettings :: Object
-                                       , defaultFilterSettings :: Object
-                                       }
-                 | SourceFilterRemoved { sourceName :: String -- A filter has been removed from a source.
-                                       , filterName :: String
-                                       }
-                 | SourceFilterNameChanged { sourceName :: String -- The name of a source filter has changed.
-                                           , oldFilterName :: String
-                                           , filterName :: String
-                                           }
-                 | SourceFilterSettingsChanged { sourceName :: String -- An source filter's settings have changed (been updated).
-                                               , filterName :: String
-                                               , filterSettings :: Object
-                                               }
-                 | SourceFilterEnableStateChanged { sourceName :: String -- A source filter's enable state has changed.
-                                                  , filterName :: String
-                                                  , filterEnabled :: Bool
-                                                  }
-                 | SceneItemCreated { sceneName :: String -- A scene item has been created.
-                                    , sceneUuid :: Maybe String
-                                    , sourceName :: String
-                                    , sourceUuid :: Maybe String
-                                    , sceneItemId :: Integer
-                                    , sceneItemIndex :: Integer
-                                    }
-                 | SceneItemRemoved { sceneName :: String -- A scene item has been removed.
-                                    , sceneUuid :: Maybe String -- This event is not emitted when the scene the item is in is removed.
-                                    , sourceName :: String
-                                    , sourceUuid :: Maybe String
-                                    , sceneItemId :: Integer
-                                    }
-                 | SceneItemListReindexed { sceneName :: String -- A scene's item list has been reindexed.
-                                          , sceneUuid :: Maybe String
-                                          , sceneItems :: [Object]
-                                          }
-                 | SceneItemEnableStateChanged { sceneName :: String -- A scene item's enable state has changed.
-                                               , sceneUuid :: Maybe String
-                                               , sceneItemId :: Integer
-                                               , sceneItemEnabled :: Bool
-                                               }
-                 | SceneItemLockStateChanged { sceneName :: String -- A scene item's lock state has changed.
-                                             , sceneUuid :: Maybe String
-                                             , sceneItemId :: Integer
-                                             , sceneItemLocked :: Bool
-                                             }
-                 | SceneItemSelected { sceneName :: String -- A scene item has been selected in the Ui.
-                                     , sceneUuid :: Maybe String
-                                     , sceneItemId :: Integer
-                                     }
-                 | SceneItemTransformChanged { sceneName :: String -- The transform/crop of a scene item has changed.
-                                             , sceneUuid :: Maybe String
-                                             , sceneItemId :: Integer
-                                             , sceneItemTransform :: Object
-                                             }
-                 | StreamStateChanged { outputActive :: Bool -- The state of the stream output has changed.
-                                      , outputState :: OutputState
-                                      }
-                 | RecordStateChanged { outputActive :: Bool -- The state of the record output has changed.
-                                      , outputState :: OutputState
-                                      , outputPath :: Maybe FilePath
-                                      }
-                 | ReplayBufferStateChanged { outputActive :: Bool -- The state of the replay buffer output has changed.
-                                            , outputState :: OutputState
-                                            }
-                 | VirtualcamStateChanged { outputActive :: Bool -- The state of the virtualcam output has changed.
-                                          , outputState :: OutputState
-                                          }
+                 | SceneTransitionStarted TransitionData -- A scene transition has started.
+                 | SceneTransitionEnded TransitionData -- A scene transition has completed fully.
+                                                       -- Note: Does not appear to trigger when the transition is interrupted by the user.
+                 | SceneTransitionVideoEnded TransitionData -- A scene transition's video has completed fully.
+                                                            -- Useful for stinger transitions to tell when the video actually ends. SceneTransitionEnded only signifies the cut point, not the completion of transition playback.
+                                                            -- Note: Appears to be called by every transition, regardless of relevance.
+                 | SourceFilterListReindexed String [Object] -- A source's filter list has been reindexed.
+                 | SourceFilterCreated SourceFilter String Integer Object Object -- A filter has been added to a source.
+                 | SourceFilterRemoved SourceFilter -- A filter has been removed from a source.
+                 | SourceFilterNameChanged SourceFilter String -- The name of a source filter has changed.
+                 | SourceFilterSettingsChanged SourceFilter Object -- An source filter's settings have changed (been updated).
+                 | SourceFilterEnableStateChanged SourceFilter Bool -- A source filter's enable state has changed.
+                 | SceneItemCreated SceneData SourceData Integer Integer -- A scene item has been created.
+                 | SceneItemRemoved SceneData SourceData Integer -- A scene item has been removed.
+                                                                 -- This event is not emitted when the scene the item is in is removed.
+                 | SceneItemListReindexed SceneData [Object] -- A scene's item list has been reindexed.
+                 | SceneItemEnableStateChanged SceneData Integer Bool -- A scene item's enable state has changed.
+                 | SceneItemLockStateChanged SceneData Integer Bool -- A scene item's lock state has changed.
+                 | SceneItemSelected SceneData Integer -- A scene item has been selected in the Ui.
+                 | SceneItemTransformChanged SceneData Integer Object -- The transform/crop of a scene item has changed.
+                 | StreamStateChanged OutputState Bool -- The state of the stream output has changed.
+                 | RecordStateChanged OutputState Bool (Maybe FilePath) -- The state of the record output has changed.
+                 | ReplayBufferStateChanged OutputState Bool -- The state of the replay buffer output has changed.
+                 | VirtualcamStateChanged OutputState Bool -- The state of the virtualcam output has changed.
                  | ReplayBufferSaved FilePath -- The replay buffer has been saved.
-                 | MediaInputPlaybackStarted { inputName :: String -- A media input has started playing.
-                                             , inputUuid :: Maybe String
-                                             }
-                 | MediaInputPlaybackEnded { inputName :: String -- A media input has finished playing.
-                                           , inputUuid :: Maybe String
-                                           }
-                 | MediaInputActionTriggered { inputName :: String -- An action has been performed on an input.
-                                             , inputUuid :: Maybe String
-                                             , mediaAction :: MediaAction
-                                             }
+                 | MediaInputPlaybackStarted InputData -- A media input has started playing.
+                 | MediaInputPlaybackEnded InputData -- A media input has finished playing.
+                 | MediaInputActionTriggered InputData MediaAction -- An action has been performed on an input.
                  | StudioModeStateChanged Bool -- Studio mode has been enabled or disabled.
                  | ScreenshotSaved FilePath -- A screenshot has been saved via Settings -> Hotkeys -> Screenshot ONLY.  Applications using Get/SaveSourceScreenshot must implement a CustomEvent.
                  deriving ( Show )
@@ -371,11 +277,11 @@ instance FromJSON ServerEvent where
               vendorName <- o .: "vendorName"
               eventType <- o .: "eventType"
               eventData <- o .: "eventData"
-              return VendorEvent{..}
+              return $ VendorEvent VendorData{..}
           "CustomEvent" -> do
               o <- d .: "eventData"
               eventData <- o .: "eventData"
-              return CustomEvent{..}
+              return $ CustomEvent eventData
           "CurrentSceneCollectionChanging" -> do
               o <- d .: "eventData"
               sceneCollectionName <- o .: "sceneCollectionName"
@@ -405,29 +311,29 @@ instance FromJSON ServerEvent where
               sceneName <- o .: "sceneName"
               sceneUuid <- o .:? "sceneUuid"
               isGroup <- o .: "isGroup"
-              return SceneCreated{..}
+              return $ SceneCreated SceneData{..} isGroup
           "SceneRemoved" -> do
               o <- d .: "eventData"
               sceneName <- o .: "sceneName"
               sceneUuid <- o .:? "sceneUuid"
               isGroup <- o .: "isGroup"
-              return SceneRemoved{..}
+              return $ SceneRemoved SceneData{..} isGroup
           "SceneNameChanged" -> do
               o <- d .: "eventData"
               sceneUuid <- o .:? "sceneUuid"
               oldSceneName <- o .: "oldSceneName"
               sceneName <- o .: "sceneName"
-              return SceneNameChanged{..}
+              return $ SceneNameChanged SceneData{..} oldSceneName
           "CurrentProgramSceneChanged" -> do
               o <- d .: "eventData"
               sceneName <- o .: "sceneName"
               sceneUuid <- o .:? "sceneUuid"
-              return CurrentProgramSceneChanged{..}
+              return $ CurrentProgramSceneChanged SceneData{..}
           "CurrentPreviewSceneChanged" -> do
               o <- d .: "eventData"
               sceneName <- o .: "sceneName"
               sceneUuid <- o .:? "sceneUuid"
-              return CurrentPreviewSceneChanged{..}
+              return $ CurrentPreviewSceneChanged SceneData{..}
           "SceneListChanged" -> do
               o <- d .: "eventData"
               scenes <- o .: "scenes"
@@ -440,67 +346,67 @@ instance FromJSON ServerEvent where
               unversionedInputKind <- o .: "unversionedInputKind"
               inputSettings <- o .: "inputSettings"
               defaultInputSettings <- o .: "defaultInputSettings"
-              return InputCreated{..}
+              return $ InputCreated InputData{..} inputKind unversionedInputKind inputSettings defaultInputSettings -- TODO: Ergonomics, probably two types to extract here
           "InputRemoved" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
-              return InputRemoved{..}
+              return $ InputRemoved InputData{..}
           "InputNameChanged" -> do
               o <- d .: "eventData"
               inputUuid <- o .:? "inputUuid"
               oldInputName <- o .: "oldInputName"
               inputName <- o .: "inputName"
-              return InputNameChanged{..}
+              return $ InputNameChanged InputData{..} oldInputName
           "InputSettingsChanged" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
               inputSettings <- o .: "inputSettings"
-              return InputSettingsChanged{..}
+              return $ InputSettingsChanged InputData{..} inputSettings
           "InputActiveStateChanged" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
               videoActive <- o .: "videoActive"
-              return InputActiveStateChanged{..}
+              return $ InputActiveStateChanged InputData{..} videoActive
           "InputShowStateChanged" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
               videoShowing <- o .: "videoShowing"
-              return InputShowStateChanged{..}
+              return $ InputShowStateChanged InputData{..} videoShowing
           "InputMuteStateChanged" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
               inputMuted <- o .: "inputMuted"
-              return InputMuteStateChanged{..}
+              return $ InputMuteStateChanged InputData{..} inputMuted
           "InputVolumeChanged" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
               inputVolumeMul <- o .: "inputVolumeMul"
               inputVolumeDb <- o .: "inputVolumeDb"
-              return InputVolumeChanged{..}
+              return $ InputVolumeChanged InputData{..} inputVolumeMul inputVolumeDb
           "InputAudioBalanceChanged" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
               inputAudioBalance <- o .: "inputAudioBalance"
-              return InputAudioBalanceChanged{..}
+              return $ InputAudioBalanceChanged InputData{..} inputAudioBalance
           "InputAudioSyncOffsetChanged" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
               inputAudioSyncOffset <- o .: "inputAudioSyncOffset"
-              return InputAudioSyncOffsetChanged{..}
+              return $ InputAudioSyncOffsetChanged InputData{..} inputAudioSyncOffset
           "InputAudioTracksChanged" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
               inputAudioTracks <- o .: "inputAudioTracks"
-              return InputAudioTracksChanged{..}
+              return $ InputAudioTracksChanged InputData{..} inputAudioTracks
           "InputAudioMonitorTypeChanged" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
@@ -509,13 +415,13 @@ instance FromJSON ServerEvent where
               case mt of
                   "OBS_MONITORING_TYPE_MONITOR_ONLY" -> do
                       let monitorType = MonitorOnly
-                      return InputAudioMonitorTypeChanged{..}
+                      return $ InputAudioMonitorTypeChanged InputData{..} monitorType
                   "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT" -> do
                       let monitorType = MonitorAndOutput
-                      return InputAudioMonitorTypeChanged{..}
+                      return $ InputAudioMonitorTypeChanged InputData{..} monitorType
                   "OBS_MONITORING_TYPE_NONE" -> do
                       let monitorType = NoMonitor
-                      return InputAudioMonitorTypeChanged{..}
+                      return $ InputAudioMonitorTypeChanged InputData{..} monitorType
                   _ -> mzero
           "InputVolumeMeters" -> do
               o <- d .: "eventData"
@@ -525,7 +431,7 @@ instance FromJSON ServerEvent where
               o <- d .: "eventData"
               transitionName <- o .: "transitionName"
               transitionUuid <- o .:? "transitionUuid"
-              return CurrentSceneTransitionChanged{..}
+              return $ CurrentSceneTransitionChanged TransitionData{..}
           "CurrentSceneTransitionDurationChanged" -> do
               o <- d .: "eventData"
               transitionDuration <- o .: "transitionDuration"
@@ -534,22 +440,22 @@ instance FromJSON ServerEvent where
               o <- d .: "eventData"
               transitionName <- o .: "transitionName"
               transitionUuid <- o .:? "transitionUuid"
-              return SceneTransitionStarted{..}
+              return $ SceneTransitionStarted TransitionData{..}
           "SceneTransitionEnded" -> do
               o <- d .: "eventData"
               transitionName <- o .: "transitionName"
               transitionUuid <- o .:? "transitionUuid"
-              return SceneTransitionEnded{..}
+              return $ SceneTransitionEnded TransitionData{..}
           "SceneTransitionVideoEnded" -> do
               o <- d .: "eventData"
               transitionName <- o .: "transitionName"
               transitionUuid <- o .:? "transitionUuid"
-              return SceneTransitionVideoEnded{..}
+              return $ SceneTransitionVideoEnded TransitionData{..}
           "SourceFilterListReindexed" -> do
               o <- d .: "eventData"
               sourceName <- o .: "sourceName"
               filters <- o .: "filters"
-              return SourceFilterListReindexed{..}
+              return $ SourceFilterListReindexed sourceName filters
           "SourceFilterCreated" -> do
               o <- d .: "eventData"
               sourceName <- o .: "sourceName"
@@ -558,30 +464,30 @@ instance FromJSON ServerEvent where
               filterIndex <- o .: "filterIndex"
               filterSettings <- o .: "filterSettings"
               defaultFilterSettings <- o .: "defaultFilterSettings"
-              return SourceFilterCreated{..}
+              return $ SourceFilterCreated SourceFilter{..} filterKind filterIndex filterSettings defaultFilterSettings
           "SourceFilterRemoved" -> do
               o <- d .: "eventData"
               sourceName <- o .: "sourceName"
               filterName <- o .: "filterName"
-              return SourceFilterRemoved{..}
+              return $ SourceFilterRemoved SourceFilter{..}
           "SourceFilterNameChanged" -> do
               o <- d .: "eventData"
               sourceName <- o .: "sourceName"
               oldFilterName <- o .: "oldFilterName"
               filterName <- o .: "filterName"
-              return SourceFilterNameChanged{..}
+              return $ SourceFilterNameChanged SourceFilter{..} oldFilterName
           "SourceFilterSettingsChanged" -> do
               o <- d .: "eventData"
               sourceName <- o .: "sourceName"
               filterName <- o .: "filterName"
               filterSettings <- o .: "filterSettings"
-              return SourceFilterSettingsChanged{..}
+              return $ SourceFilterSettingsChanged SourceFilter{..} filterSettings
           "SourceFilterEnableStateChanged" -> do
               o <- d .: "eventData"
               sourceName <- o .: "sourceName"
               filterName <- o .: "filterName"
               filterEnabled <- o .: "filterEnabled"
-              return SourceFilterEnableStateChanged{..}
+              return $ SourceFilterEnableStateChanged SourceFilter{..} filterEnabled
           "SceneItemCreated" -> do
               o <- d .: "eventData"
               sceneName <- o .: "sceneName"
@@ -590,7 +496,7 @@ instance FromJSON ServerEvent where
               sourceUuid <- o .:? "sourceUuid"
               sceneItemId <- o .: "sceneItemId"
               sceneItemIndex <- o .: "sceneItemIndex"
-              return SceneItemCreated{..}
+              return $ SceneItemCreated SceneData{..} SourceData{..} sceneItemId sceneItemIndex
           "SceneItemRemoved" -> do
               o <- d .: "eventData"
               sceneName <- o .: "sceneName"
@@ -598,57 +504,49 @@ instance FromJSON ServerEvent where
               sourceName <- o .: "sourceName"
               sourceUuid <- o .:? "sourceUuid"
               sceneItemId <- o .: "sceneItemId"
-              return SceneItemRemoved{..}
+              return $ SceneItemRemoved SceneData{..} SourceData{..} sceneItemId
           "SceneItemListReindexed" -> do
               o <- d .: "eventData"
               sceneName <- o .: "sceneName"
               sceneUuid <- o .:? "sceneUuid"
               sceneItems <- o .: "sceneItems"
-              return SceneItemListReindexed{..}
+              return $ SceneItemListReindexed SceneData{..} sceneItems
           "SceneItemEnableStateChanged" -> do
               o <- d .: "eventData"
               sceneName <- o .: "sceneName"
               sceneUuid <- o .:? "sceneUuid"
               sceneItemId <- o .: "sceneItemId"
               sceneItemEnabled <- o .: "sceneItemEnabled"
-              return SceneItemEnableStateChanged{..}
+              return $ SceneItemEnableStateChanged SceneData{..} sceneItemId sceneItemEnabled
           "SceneItemLockStateChanged" -> do
               o <- d .: "eventData"
               sceneName <- o .: "sceneName"
               sceneUuid <- o .:? "sceneUuid"
               sceneItemId <- o .: "sceneItemId"
               sceneItemLocked <- o .: "sceneItemLocked"
-              return SceneItemLockStateChanged{..}
+              return $ SceneItemLockStateChanged SceneData{..} sceneItemId sceneItemLocked
           "SceneItemSelected" -> do
               o <- d .: "eventData"
               sceneName <- o .: "sceneName"
               sceneUuid <- o .:? "sceneUuid"
               sceneItemId <- o .: "sceneItemId"
-              return SceneItemSelected{..}
+              return $ SceneItemSelected SceneData{..} sceneItemId
           "SceneItemTransformChanged" -> do
               o <- d .: "eventData"
               sceneName <- o .: "sceneName"
               sceneUuid <- o .:? "sceneUuid"
               sceneItemId <- o .: "sceneItemId"
               sceneItemTransform <- o .: "sceneItemTransform"
-              return SceneItemTransformChanged{..}
+              return $ SceneItemTransformChanged SceneData{..} sceneItemId sceneItemTransform
           "StreamStateChanged" -> do
               o <- d .: "eventData"
               outputActive <- o .: "outputActive"
               (os :: String) <- o .: "outputState"
               case os of
-                "OBS_WEBSOCKET_OUTPUT_STARTED" -> do
-                    let outputState = OutputStarted
-                    return StreamStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STARTING" -> do
-                    let outputState = OutputStarting
-                    return StreamStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STOPPED" -> do
-                    let outputState = OutputStopped
-                    return StreamStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STOPPING" -> do
-                    let outputState = OutputStopping
-                    return StreamStateChanged{..}
+                "OBS_WEBSOCKET_OUTPUT_STARTED" -> return $ StreamStateChanged OutputStarted outputActive
+                "OBS_WEBSOCKET_OUTPUT_STARTING" -> return $ StreamStateChanged OutputStarting outputActive
+                "OBS_WEBSOCKET_OUTPUT_STOPPED" -> return $ StreamStateChanged OutputStopped outputActive
+                "OBS_WEBSOCKET_OUTPUT_STOPPING" -> return $ StreamStateChanged OutputStopping outputActive
                 _ -> mzero
           "RecordStateChanged" -> do
               o <- d .: "eventData"
@@ -656,54 +554,30 @@ instance FromJSON ServerEvent where
               outputPath <- o .:? "outputPath"
               (os :: String) <- o .: "outputState"
               case os of
-                "OBS_WEBSOCKET_OUTPUT_STARTED" -> do
-                    let outputState = OutputStarted
-                    return RecordStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STARTING" -> do
-                    let outputState = OutputStarting
-                    return RecordStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STOPPED" -> do
-                    let outputState = OutputStopped
-                    return RecordStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STOPPING" -> do
-                    let outputState = OutputStopping
-                    return RecordStateChanged{..}
+                "OBS_WEBSOCKET_OUTPUT_STARTED" -> return $ RecordStateChanged OutputStarted outputActive outputPath
+                "OBS_WEBSOCKET_OUTPUT_STARTING" -> return $ RecordStateChanged OutputStarting outputActive outputPath
+                "OBS_WEBSOCKET_OUTPUT_STOPPED" -> return $ RecordStateChanged OutputStopped outputActive outputPath
+                "OBS_WEBSOCKET_OUTPUT_STOPPING" -> return $ RecordStateChanged OutputStopping outputActive outputPath
                 _ -> mzero
           "ReplayBufferStateChanged" -> do
               o <- d .: "eventData"
               outputActive <- o .: "outputActive"
               (os :: String) <- o .: "outputState"
               case os of
-                "OBS_WEBSOCKET_OUTPUT_STARTED" -> do
-                    let outputState = OutputStarted
-                    return ReplayBufferStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STARTING" -> do
-                    let outputState = OutputStarting
-                    return ReplayBufferStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STOPPED" -> do
-                    let outputState = OutputStopped
-                    return ReplayBufferStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STOPPING" -> do
-                    let outputState = OutputStopping
-                    return ReplayBufferStateChanged{..}
+                "OBS_WEBSOCKET_OUTPUT_STARTED" -> return $ ReplayBufferStateChanged OutputStarted outputActive
+                "OBS_WEBSOCKET_OUTPUT_STARTING" -> return $ ReplayBufferStateChanged OutputStarting outputActive
+                "OBS_WEBSOCKET_OUTPUT_STOPPED" -> return $ ReplayBufferStateChanged OutputStopped outputActive
+                "OBS_WEBSOCKET_OUTPUT_STOPPING" -> return $ ReplayBufferStateChanged OutputStopping outputActive
                 _ -> mzero
           "VirtualcamStateChanged" -> do
               o <- d .: "eventData"
               outputActive <- o .: "outputActive"
               (os :: String) <- o .: "outputState"
               case os of
-                "OBS_WEBSOCKET_OUTPUT_STARTED" -> do
-                    let outputState = OutputStarted
-                    return VirtualcamStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STARTING" -> do
-                    let outputState = OutputStarting
-                    return VirtualcamStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STOPPED" -> do
-                    let outputState = OutputStopped
-                    return VirtualcamStateChanged{..}
-                "OBS_WEBSOCKET_OUTPUT_STOPPING" -> do
-                    let outputState = OutputStopping
-                    return VirtualcamStateChanged{..}
+                "OBS_WEBSOCKET_OUTPUT_STARTED" -> return $ VirtualcamStateChanged OutputStarted outputActive
+                "OBS_WEBSOCKET_OUTPUT_STARTING" -> return $ VirtualcamStateChanged OutputStarting outputActive
+                "OBS_WEBSOCKET_OUTPUT_STOPPED" -> return $ VirtualcamStateChanged OutputStopped outputActive
+                "OBS_WEBSOCKET_OUTPUT_STOPPING" -> return $ VirtualcamStateChanged OutputStopping outputActive
                 _ -> mzero
           "ReplayBufferSaved" -> do
               o <- d .: "eventData"
@@ -713,39 +587,25 @@ instance FromJSON ServerEvent where
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
-              return MediaInputPlaybackStarted{..}
+              return $ MediaInputPlaybackStarted InputData{..}
           "MediaInputPlaybackEnded" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
-              return MediaInputPlaybackEnded{..}
+              return $ MediaInputPlaybackEnded InputData{..}
           "MediaInputActionTriggered" -> do
               o <- d .: "eventData"
               inputName <- o .: "inputName"
               inputUuid <- o .:? "inputUuid"
               (mo :: String) <- o .: "mediaAction"
               case mo of
-                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_NONE" -> do
-                    let mediaAction = MediaNone
-                    return MediaInputActionTriggered{..}
-                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_PLAY" -> do
-                    let mediaAction = MediaPlay
-                    return MediaInputActionTriggered{..}
-                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_PAUSE" -> do
-                    let mediaAction = MediaPause
-                    return MediaInputActionTriggered{..}
-                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_STOP" -> do
-                    let mediaAction = MediaStop
-                    return MediaInputActionTriggered{..}
-                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_RESTART" -> do
-                    let mediaAction = MediaRestart
-                    return MediaInputActionTriggered{..}
-                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_NEXT" -> do
-                    let mediaAction = MediaNext
-                    return MediaInputActionTriggered{..}
-                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_PREVIOUS" -> do
-                    let mediaAction = MediaPrevious
-                    return MediaInputActionTriggered{..}
+                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_NONE" -> return $ MediaInputActionTriggered InputData{..} MediaNone
+                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_PLAY" -> return $ MediaInputActionTriggered InputData{..} MediaPlay
+                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_PAUSE" -> return $ MediaInputActionTriggered InputData{..} MediaPause
+                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_STOP" -> return $ MediaInputActionTriggered InputData{..} MediaStop
+                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_RESTART" -> return $ MediaInputActionTriggered InputData{..} MediaRestart
+                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_NEXT" -> return $ MediaInputActionTriggered InputData{..} MediaNext
+                "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_PREVIOUS" -> return $ MediaInputActionTriggered InputData{..} MediaPrevious
                 _ -> mzero
           "StudioModeStateChanged" -> do
               o <- d .: "eventData"
