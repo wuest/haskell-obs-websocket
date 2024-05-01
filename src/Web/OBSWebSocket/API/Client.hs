@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards       #-}
+{-# OPTIONS_GHC -fmax-pmcheck-models=200 #-}
 
 module Web.OBSWebSocket.API.Client where
 
@@ -26,14 +26,20 @@ import Data.Digest.Pure.SHA       ( sha256 )
 import qualified Data.Aeson as JSON               ( Value(..) )
 import qualified Data.Binary as Binary            ( encode )
 import qualified Data.ByteString.Base64 as Base64 ( encode )
-import qualified Data.HashMap.Strict as HM        ( insert )
-import qualified Data.Text           as Text      ( Text, pack )
+
+data SleepLength = SleepFrames Integer
+                 | SleepMillis Integer
+                 deriving ( Show )
 
 data Realm = Global | Profile
     deriving ( Show )
 instance ToJSON Realm where
     toJSON Global = JSON.String "OBS_WEBSOCKET_DATA_REALM_GLOBAL"
     toJSON Profile = JSON.String "OBS_WEBSOCKET_DATA_REALM_PROFILE"
+
+data NameUuid = Name String
+              | Uuid String
+              deriving ( Show )
 
 data MonitorType = NoMonitor | MonitorOnly | MonitorAndOutput
     deriving ( Show )
@@ -85,9 +91,17 @@ instance ToJSON MediaAction where
 
 type ProjectorGeometry = String
 
+type Numerator = Integer
+type Denominator = Integer
+type FPSSettings = (Numerator, Denominator)
+
+type Width = Integer
+type Height = Integer
+type CanvasSettings = (Width, Height)
+type OutputSettings = (Width, Height)
+
 -- Ergonomics notes: fix before release
 -- Types shared between client and server should be extracted
--- (Maybe String) (Maybe String) is an either in hiding.  Fix this
 -- Some 2-tuples probably want to be extracted as more explicit types
 -- Boolean overlay + a JSON.Value can be extracted as a type
 -- Projector Geometry is a Qt object submitted in a base64 encoded format - no reason the developer should have to deal with that, this needs a type
@@ -97,7 +111,7 @@ data RequestData = GetVersion
                  | CallVendorRequest String String (Maybe JSON.Value)
                  | GetHotkeyList
                  | TriggerHotkeyByName String (Maybe String)
-                 | Sleep (Maybe Integer) (Maybe Integer)
+                 | Sleep SleepLength
                  | GetPersistentData Realm String
                  | SetPersistentData Realm String JSON.Value
                  | GetSceneCollectionList
@@ -110,49 +124,55 @@ data RequestData = GetVersion
                  | GetProfileParameter String String
                  | SetProfileParameter String String String
                  | GetVideoSettings
-                 | SetVideoSettings (Maybe (Integer, Integer)) (Maybe (Integer, Integer)) (Maybe (Integer, Integer))
+                 | SetVideoSettingsF FPSSettings
+                 | SetVideoSettingsC CanvasSettings
+                 | SetVideoSettingsO OutputSettings
+                 | SetVideoSettingsFC FPSSettings CanvasSettings
+                 | SetVideoSettingsFO FPSSettings OutputSettings
+                 | SetVideoSettingsCO CanvasSettings OutputSettings
+                 | SetVideoSettings FPSSettings CanvasSettings  OutputSettings
                  | GetStreamServiceSettings
                  | SetStreamServiceSettings String JSON.Value
                  | GetRecordDirectory
                  | SetRecordDirectory FilePath
-                 | GetSourceActive (Maybe String) (Maybe String)
+                 | GetSourceActive NameUuid
                  | GetSourceScreenshot String String (Maybe (Integer, Integer)) (Maybe Integer)
                  | SaveSourceScreenshot String String FilePath (Maybe (Integer, Integer)) (Maybe Integer)
                  | GetSceneList
                  | GetGroupList
                  | GetCurrentProgramScene
-                 | SetCurrentProgramScene (Maybe String) (Maybe String)
+                 | SetCurrentProgramScene NameUuid
                  | GetCurrentPreviewScene
-                 | SetCurrentPreviewScene (Maybe String) (Maybe String)
+                 | SetCurrentPreviewScene NameUuid
                  | CreateScene String
-                 | RemoveScene (Maybe String) (Maybe String)
-                 | SetSceneName (Maybe String) (Maybe String) String
+                 | RemoveScene NameUuid
+                 | SetSceneName NameUuid String
                  | GetSceneSceneTransitionOverride String
                  | SetSceneSceneTransitionOverride String (Maybe String) (Maybe Integer)
                  | GetInputList (Maybe String)
                  | GetInputKindList (Maybe Bool)
                  | GetSpecialInputs
                  | CreateInput String String String (Maybe JSON.Value) (Maybe Bool)
-                 | RemoveInput (Maybe String) (Maybe String)
-                 | SetInputName (Maybe String) (Maybe String) String
+                 | RemoveInput NameUuid
+                 | SetInputName NameUuid String
                  | GetInputDefaultSettings String
-                 | GetInputSettings (Maybe String) (Maybe String)
-                 | SetInputSettings (Maybe String) (Maybe String) JSON.Value (Maybe Bool)
-                 | GetInputMute (Maybe String) (Maybe String)
-                 | SetInputMute (Maybe String) (Maybe String) Bool
-                 | ToggleInputMute (Maybe String) (Maybe String)
-                 | GetInputVolume (Maybe String) (Maybe String)
-                 | SetInputVolume (Maybe String) (Maybe String) (Maybe (Integer, Integer))
-                 | GetInputAudioBalance (Maybe String) (Maybe String)
-                 | SetInputAudioBalance (Maybe String) (Maybe String) Float
-                 | GetInputAudioSyncOffset (Maybe String) (Maybe String)
-                 | SetInputAudioSyncOffset (Maybe String) (Maybe String) Integer
-                 | GetInputAudioMonitorType (Maybe String) (Maybe String)
-                 | SetInputAudioMonitorType (Maybe String) (Maybe String) MonitorType
-                 | GetInputAudioTracks (Maybe String) (Maybe String)
-                 | SetInputAudioTracks (Maybe String) (Maybe String) JSON.Value
-                 | GetInputPropertiesListPropertyItems (Maybe String) (Maybe String) String
-                 | PressInputPropertiesButton (Maybe String) (Maybe String) String
+                 | GetInputSettings NameUuid
+                 | SetInputSettings NameUuid JSON.Value (Maybe Bool)
+                 | GetInputMute NameUuid
+                 | SetInputMute NameUuid Bool
+                 | ToggleInputMute NameUuid
+                 | GetInputVolume NameUuid
+                 | SetInputVolume NameUuid (Maybe (Integer, Integer))
+                 | GetInputAudioBalance NameUuid
+                 | SetInputAudioBalance NameUuid Float
+                 | GetInputAudioSyncOffset NameUuid
+                 | SetInputAudioSyncOffset NameUuid Integer
+                 | GetInputAudioMonitorType NameUuid
+                 | SetInputAudioMonitorType NameUuid MonitorType
+                 | GetInputAudioTracks NameUuid
+                 | SetInputAudioTracks NameUuid JSON.Value
+                 | GetInputPropertiesListPropertyItems NameUuid String
+                 | PressInputPropertiesButton NameUuid String
                  | GetTransitionKindList
                  | GetSceneTransitionList
                  | GetCurrentSceneTransition
@@ -163,32 +183,32 @@ data RequestData = GetVersion
                  | TriggerStudioModeTransition
                  | SetTBarPosition Float (Maybe Bool)
                  | GetSourceFilterKindList
-                 | GetSourceFilterList (Maybe String) (Maybe String)
+                 | GetSourceFilterList NameUuid
                  | GetSourceFilterDefaultSettings String
-                 | CreateSourceFilter (Maybe String) (Maybe String) String String JSON.Value
-                 | RemoveSourceFilter (Maybe String) (Maybe String) String
-                 | SetSourceFilterName (Maybe String) (Maybe String) String String
-                 | GetSourceFilter (Maybe String) (Maybe String) String
-                 | SetSourceFilterIndex (Maybe String) (Maybe String) String Integer
-                 | SetSourceFilterSettings (Maybe String) (Maybe String) String JSON.Value (Maybe Bool)
-                 | SetSourceFilterEnabled (Maybe String) (Maybe String) String Bool
-                 | GetSceneItemList (Maybe String) (Maybe String)
-                 | GetGroupSceneItemList (Maybe String) (Maybe String)
-                 | GetSceneItemId (Maybe String) (Maybe String) String (Maybe Integer)
-                 | GetSceneItemSource (Maybe String) (Maybe String) Integer
-                 | CreateSceneItem (Maybe String) (Maybe String) (Maybe String) (Maybe String) (Maybe Bool)
-                 | RemoveSceneItem (Maybe String) (Maybe String) Integer
-                 | DuplicateSceneItem (Maybe String) (Maybe String) Integer (Maybe String) (Maybe String)
-                 | GetSceneItemTransform (Maybe String) (Maybe String) Integer
-                 | SetSceneItemTransform (Maybe String) (Maybe String) Integer JSON.Value
-                 | GetSceneItemEnabled (Maybe String) (Maybe String) Integer
-                 | SetSceneItemEnabled (Maybe String) (Maybe String) Integer Bool
-                 | GetSceneItemLocked (Maybe String) (Maybe String) Integer
-                 | SetSceneItemLocked (Maybe String) (Maybe String) Integer Bool
-                 | GetSceneItemIndex (Maybe String) (Maybe String) Integer
-                 | SetSceneItemIndex (Maybe String) (Maybe String) Integer Integer
-                 | GetSceneItemBlendMode (Maybe String) (Maybe String) Integer
-                 | SetSceneItemBlendMode (Maybe String) (Maybe String) Integer BlendMode
+                 | CreateSourceFilter NameUuid String String JSON.Value
+                 | RemoveSourceFilter NameUuid String
+                 | SetSourceFilterName NameUuid String String
+                 | GetSourceFilter NameUuid String
+                 | SetSourceFilterIndex NameUuid String Integer
+                 | SetSourceFilterSettings NameUuid String JSON.Value (Maybe Bool)
+                 | SetSourceFilterEnabled NameUuid String Bool
+                 | GetSceneItemList NameUuid
+                 | GetGroupSceneItemList NameUuid
+                 | GetSceneItemId NameUuid String (Maybe Integer)
+                 | GetSceneItemSource NameUuid Integer
+                 | CreateSceneItem NameUuid NameUuid (Maybe Bool)
+                 | RemoveSceneItem NameUuid Integer
+                 | DuplicateSceneItem NameUuid Integer NameUuid
+                 | GetSceneItemTransform NameUuid Integer
+                 | SetSceneItemTransform NameUuid Integer JSON.Value
+                 | GetSceneItemEnabled NameUuid Integer
+                 | SetSceneItemEnabled NameUuid Integer Bool
+                 | GetSceneItemLocked NameUuid Integer
+                 | SetSceneItemLocked NameUuid Integer Bool
+                 | GetSceneItemIndex NameUuid Integer
+                 | SetSceneItemIndex NameUuid Integer Integer
+                 | GetSceneItemBlendMode NameUuid Integer
+                 | SetSceneItemBlendMode NameUuid Integer BlendMode
                  | GetVirtualCamStatus
                  | ToggleVirtualCam
                  | StartVirtualCam
@@ -218,18 +238,18 @@ data RequestData = GetVersion
                  | ToggleRecordPause
                  | PauseRecord
                  | ResumeRecord
-                 | GetMediaInputStatus (Maybe String) (Maybe String)
-                 | SetMediaInputCursor (Maybe String) (Maybe String) Integer
-                 | OffsetMediaInputCursor (Maybe String) (Maybe String) Integer
-                 | TriggerMediaInputAction (Maybe String) (Maybe String) MediaAction
+                 | GetMediaInputStatus NameUuid
+                 | SetMediaInputCursor NameUuid Integer
+                 | OffsetMediaInputCursor NameUuid Integer
+                 | TriggerMediaInputAction NameUuid MediaAction
                  | GetStudioModeEnabled
                  | SetStudioModeEnabled Bool
-                 | OpenInputPropertiesDialog (Maybe String) (Maybe String)
-                 | OpenInputFiltersDialog (Maybe String) (Maybe String)
-                 | OpenInputInteractDialog (Maybe String) (Maybe String)
+                 | OpenInputPropertiesDialog NameUuid
+                 | OpenInputFiltersDialog NameUuid
+                 | OpenInputInteractDialog NameUuid
                  | GetMonitorList
                  | OpenVideoMixProjector MixType (Maybe Integer) (Maybe ProjectorGeometry)
-                 | OpenSourceProjector (Maybe String) (Maybe String) (Maybe Integer) (Maybe ProjectorGeometry)
+                 | OpenSourceProjector NameUuid (Maybe Integer) (Maybe ProjectorGeometry)
                  deriving ( Show )
 
 toRequestData :: RequestData -> String -> JSON.Value
@@ -269,14 +289,14 @@ toRequestData (TriggerHotkeyByName hotkeyName Nothing) rid = object [ "requestId
                                                                     , "requestType" .= JSON.String "TriggerHotkeyByName"
                                                                     , "requestData" .= object [ "hotkeyName" .= hotkeyName ]
                                                                     ]
-toRequestData (Sleep (Just millis) Nothing) rid = object [ "requestId" .= rid
-                                                         , "requestType" .= JSON.String "Sleep"
-                                                         , "requestData" .= object [ "sleepMillis" .= millis ]
-                                                         ]
-toRequestData (Sleep Nothing (Just frames)) rid = object [ "requestId" .= rid
-                                                         , "requestType" .= JSON.String "Sleep"
-                                                         , "requestData" .= object [ "sleepFrames" .= frames ]
-                                                         ]
+toRequestData (Sleep (SleepMillis millis)) rid = object [ "requestId" .= rid
+                                                        , "requestType" .= JSON.String "Sleep"
+                                                        , "requestData" .= object [ "sleepMillis" .= millis ]
+                                                        ]
+toRequestData (Sleep (SleepFrames frames)) rid = object [ "requestId" .= rid
+                                                        , "requestType" .= JSON.String "Sleep"
+                                                        , "requestData" .= object [ "sleepFrames" .= frames ]
+                                                        ]
 toRequestData (GetPersistentData realm slotName) rid = object [ "requestId" .= rid
                                                               , "requestType" .= JSON.String "GetPersistentData"
                                                               , "requestData" .= object [ "realm" .= realm
@@ -332,58 +352,59 @@ toRequestData (SetProfileParameter parameterCategory parameterName parameterValu
 toRequestData GetVideoSettings rid = object [ "requestId" .= rid
                                             , "requestType" .= JSON.String "GetVideoSettings"
                                             ]
-toRequestData (SetVideoSettings (Just (fpsNumerator, fpsDenominator)) Nothing Nothing) rid = object [ "requestId" .= rid
+toRequestData (SetVideoSettingsF (fpsNumerator, fpsDenominator)) rid = object [ "requestId" .= rid
+                                                                              , "requestType" .= JSON.String "SetVideoSettings"
+                                                                              , "requestData" .= object [ "fpsNumerator" .= fpsNumerator
+                                                                                                        , "fpsDenominator" .= fpsDenominator
+                                                                                                        ]
+                                                                              ]
+toRequestData (SetVideoSettingsC (baseWidth, baseHeight)) rid = object [ "requestId" .= rid
+                                                                       , "requestType" .= JSON.String "SetVideoSettings"
+                                                                       , "requestData" .= object [ "baseWidth" .= baseWidth
+                                                                                                 , "baseHeight" .= baseHeight
+                                                                                                 ]
+                                                                       ]
+toRequestData (SetVideoSettingsO (outputWidth, outputHeight)) rid = object [ "requestId" .= rid
+                                                                           , "requestType" .= JSON.String "SetVideoSettings"
+                                                                           , "requestData" .= object [ "outputWidth" .= outputWidth
+                                                                                                     , "outputHeight" .= outputHeight
+                                                                                                     ]
+                                                                           ]
+toRequestData (SetVideoSettingsFC (fpsNumerator, fpsDenominator) (baseWidth, baseHeight)) rid = object [ "requestId" .= rid
+                                                                                                       , "requestType" .= JSON.String "SetVideoSettings"
+                                                                                                       , "requestData" .= object [ "fpsNumerator" .= fpsNumerator
+                                                                                                                                 , "fpsDenominator" .= fpsDenominator
+                                                                                                                                 , "baseWidth" .= baseWidth
+                                                                                                                                 , "baseHeight" .= baseHeight
+                                                                                                                                 ]
+                                                                                                       ]
+toRequestData (SetVideoSettingsFO (fpsNumerator, fpsDenominator) (outputWidth, outputHeight)) rid = object [ "requestId" .= rid
+                                                                                                           , "requestType" .= JSON.String "SetVideoSettings"
+                                                                                                           , "requestData" .= object [ "fpsNumerator" .= fpsNumerator
+                                                                                                                                     , "fpsDenominator" .= fpsDenominator
+                                                                                                                                     , "outputWidth" .= outputWidth
+                                                                                                                                     , "outputHeight" .= outputHeight
+                                                                                                                                     ]
+                                                                                                           ]
+toRequestData (SetVideoSettingsCO (baseWidth, baseHeight) (outputWidth, outputHeight)) rid = object [ "requestId" .= rid
                                                                                                     , "requestType" .= JSON.String "SetVideoSettings"
-                                                                                                    , "requestData" .= object [ "fpsNumerator" .= fpsNumerator
-                                                                                                                              , "fpsDenominator" .= fpsDenominator
+                                                                                                    , "requestData" .= object [ "baseWidth" .= baseWidth
+                                                                                                                              , "baseHeight" .= baseHeight
+                                                                                                                              , "outputWidth" .= outputWidth
+                                                                                                                              , "outputHeight" .= outputHeight
                                                                                                                               ]
                                                                                                     ]
-toRequestData (SetVideoSettings Nothing (Just (baseWidth, baseHeight)) Nothing) rid = object [ "requestId" .= rid
-                                                                                             , "requestType" .= JSON.String "SetVideoSettings"
-                                                                                             , "requestData" .= object [ "baseWidth" .= baseWidth
-                                                                                                                       , "baseHeight" .= baseHeight
-                                                                                                                       ]
-                                                                                             ]
-toRequestData (SetVideoSettings Nothing Nothing (Just (outputWidth, outputHeight))) rid = object [ "requestId" .= rid
-                                                                                                 , "requestType" .= JSON.String "SetVideoSettings"
-                                                                                                 , "requestData" .= object [ "outputWidth" .= outputWidth
-                                                                                                                           , "outputHeight" .= outputHeight
-                                                                                                                           ]
-                                                                                                 ]
-toRequestData (SetVideoSettings (Just (fpsNumerator, fpsDenominator)) (Just (baseWidth, baseHeight)) Nothing) rid = object [ "requestId" .= rid
-                                                                                                                           , "requestType" .= JSON.String "SetVideoSettings"
-                                                                                                                           , "requestData" .= object [ "fpsNumerator" .= fpsNumerator
-                                                                                                                                                     , "fpsDenominator" .= fpsDenominator
-                                                                                                                                                     , "baseWidth" .= baseWidth
-                                                                                                                                                     , "baseHeight" .= baseHeight
-                                                                                                                                                     ]
-                                                                                                                           ]
-toRequestData (SetVideoSettings (Just (fpsNumerator, fpsDenominator)) Nothing (Just (outputWidth, outputHeight))) rid = object [ "requestId" .= rid
-                                                                                                                  , "requestType" .= JSON.String "SetVideoSettings"
-                                                                                                                  , "requestData" .= object [ "fpsNumerator" .= fpsNumerator
-                                                                                                                                            , "fpsDenominator" .= fpsDenominator
-                                                                                                                                            , "outputWidth" .= outputWidth
-                                                                                                                                            , "outputHeight" .= outputHeight
-                                                                                                                                            ]
-                                                                                                                  ]
-toRequestData (SetVideoSettings Nothing (Just (baseWidth, baseHeight)) (Just (outputWidth, outputHeight))) rid = object [ "requestId" .= rid
-                                                                                                                        , "requestType" .= JSON.String "SetVideoSettings"
-                                                                                                                        , "requestData" .= object [ "baseWidth" .= baseWidth
-                                                                                                                                                  , "baseHeight" .= baseHeight
-                                                                                                                                                  , "outputWidth" .= outputWidth
-                                                                                                                                                  , "outputHeight" .= outputHeight
-                                                                                                                                                  ]
-                                                                                                                        ]
-toRequestData (SetVideoSettings (Just (fpsNumerator, fpsDenominator)) (Just (baseWidth, baseHeight)) (Just (outputWidth, outputHeight))) rid = object [ "requestId" .= rid
-                                                                                                                                                      , "requestType" .= JSON.String "SetVideoSettings"
-                                                                                                                                                      , "requestData" .= object [ "fpsNumerator" .= fpsNumerator
-                                                                                                                                                                                , "fpsDenominator" .= fpsDenominator
-                                                                                                                                                                                , "baseWidth" .= baseWidth
-                                                                                                                                                                                , "baseHeight" .= baseHeight
-                                                                                                                                                                                , "outputWidth" .= outputWidth
-                                                                                                                                                                                , "outputHeight" .= outputHeight
-                                                                                                                                                                                ]
-                                                                                                                                                      ]
+
+toRequestData (SetVideoSettings (fpsNumerator, fpsDenominator) (baseWidth, baseHeight) (outputWidth, outputHeight)) rid = object [ "requestId" .= rid
+                                                                                                                                 , "requestType" .= JSON.String "SetVideoSettings"
+                                                                                                                                 , "requestData" .= object [ "fpsNumerator" .= fpsNumerator
+                                                                                                                                                           , "fpsDenominator" .= fpsDenominator
+                                                                                                                                                           , "baseWidth" .= baseWidth
+                                                                                                                                                           , "baseHeight" .= baseHeight
+                                                                                                                                                           , "outputWidth" .= outputWidth
+                                                                                                                                                           , "outputHeight" .= outputHeight
+                                                                                                                                                           ]
+                                                                                                                                 ]
 toRequestData GetStreamServiceSettings rid = object [ "requestId" .= rid
                                                     , "requestType" .= JSON.String "GetStreamServiceSettings"
                                                     ]
@@ -400,14 +421,14 @@ toRequestData (SetRecordDirectory recordDirectory) rid = object [ "requestId" .=
                                                                 , "requestType" .= JSON.String "SetRecordDirectory"
                                                                 , "requestData" .= object [ "recordDirectory" .= recordDirectory ]
                                                                 ]
-toRequestData (GetSourceActive (Just sourceName) Nothing) rid = object [ "requestId" .= rid
-                                                                       , "requestType" .= JSON.String "GetSourceActive"
-                                                                       , "requestData" .= object [ "sourceName" .= sourceName ]
-                                                                       ]
-toRequestData (GetSourceActive Nothing (Just sourceUuid) ) rid = object [ "requestId" .= rid
-                                                                        , "requestType" .= JSON.String "GetSourceActive"
-                                                                        , "requestData" .= object [ "sourceUuid" .= sourceUuid ]
-                                                                        ]
+toRequestData (GetSourceActive (Name sourceName)) rid = object [ "requestId" .= rid
+                                                               , "requestType" .= JSON.String "GetSourceActive"
+                                                               , "requestData" .= object [ "sourceName" .= sourceName ]
+                                                               ]
+toRequestData (GetSourceActive (Uuid sourceUuid)) rid = object [ "requestId" .= rid
+                                                               , "requestType" .= JSON.String "GetSourceActive"
+                                                               , "requestData" .= object [ "sourceUuid" .= sourceUuid ]
+                                                               ]
 toRequestData (GetSourceScreenshot sourceName sourceFormat (Just (imageWidth, imageHeight)) (Just imageCompressionQuality)) rid = object [ "requestId" .= rid
                                                                                                                                          , "requestType" .= JSON.String "GetSourceScreenshot"
                                                                                                                                          , "requestData" .= object [ "sourceName" .= sourceName
@@ -456,7 +477,7 @@ toRequestData (SaveSourceScreenshot sourceName sourceFormat imageFilePath (Just 
                                                                                                                                                            , "imageWidth" .= imageWidth
                                                                                                                                                            , "imageHeight" .= imageHeight
                                                                                                                                                            ]
-                                                                                                                                                        ]
+                                                                                                                                 ]
 toRequestData (SaveSourceScreenshot sourceName sourceFormat imageFilePath Nothing (Just imageCompressionQuality)) rid = object [ "requestId" .= rid
                                                                                                                                , "requestType" .= JSON.String "SaveSourceScreenshot"
                                                                                                                                , "requestData" .= object [ "sourceName" .= sourceName
@@ -481,49 +502,49 @@ toRequestData GetGroupList rid = object [ "requestId" .= rid
 toRequestData GetCurrentProgramScene rid = object [ "requestId" .= rid
                                                   , "requestType" .= JSON.String "GetCurrentProgramScene"
                                                   ]
-toRequestData (SetCurrentProgramScene (Just sceneName) Nothing) rid = object [ "requestId" .= rid
-                                                                             , "requestType" .= JSON.String "SetCurrentProgramScene"
-                                                                             , "requestData" .= object [ "sceneName" .= sceneName ]
-                                                                             ]
-toRequestData (SetCurrentProgramScene Nothing (Just sceneUuid)) rid = object [ "requestId" .= rid
-                                                                             , "requestType" .= JSON.String "SetCurrentProgramScene"
-                                                                             , "requestData" .= object [ "sceneUuid" .= sceneUuid ]
-                                                                             ]
+toRequestData (SetCurrentProgramScene (Name sceneName)) rid = object [ "requestId" .= rid
+                                                                     , "requestType" .= JSON.String "SetCurrentProgramScene"
+                                                                     , "requestData" .= object [ "sceneName" .= sceneName ]
+                                                                     ]
+toRequestData (SetCurrentProgramScene (Uuid sceneUuid)) rid = object [ "requestId" .= rid
+                                                                     , "requestType" .= JSON.String "SetCurrentProgramScene"
+                                                                     , "requestData" .= object [ "sceneUuid" .= sceneUuid ]
+                                                                     ]
 toRequestData GetCurrentPreviewScene rid = object [ "requestId" .= rid
                                                   , "requestType" .= JSON.String "GetCurrentPreviewScene"
                                                   ]
-toRequestData (SetCurrentPreviewScene (Just sceneName) Nothing) rid = object [ "requestId" .= rid
-                                                                             , "requestType" .= JSON.String "SetCurrentPreviewScene"
-                                                                             , "requestData" .= object [ "sceneName" .= sceneName ]
-                                                                             ]
-toRequestData (SetCurrentPreviewScene Nothing (Just sceneUuid)) rid = object [ "requestId" .= rid
-                                                                             , "requestType" .= JSON.String "SetCurrentPreviewScene"
-                                                                             , "requestData" .= object [ "sceneUuid" .= sceneUuid ]
-                                                                             ]
+toRequestData (SetCurrentPreviewScene (Name sceneName)) rid = object [ "requestId" .= rid
+                                                                     , "requestType" .= JSON.String "SetCurrentPreviewScene"
+                                                                     , "requestData" .= object [ "sceneName" .= sceneName ]
+                                                                     ]
+toRequestData (SetCurrentPreviewScene (Uuid sceneUuid)) rid = object [ "requestId" .= rid
+                                                                     , "requestType" .= JSON.String "SetCurrentPreviewScene"
+                                                                     , "requestData" .= object [ "sceneUuid" .= sceneUuid ]
+                                                                     ]
 toRequestData (CreateScene sceneName) rid = object [ "requestId" .= rid
                                                    , "requestType" .= JSON.String "CreateScene"
                                                    , "requestData" .= object [ "sceneName" .= sceneName ]
                                                    ]
-toRequestData (RemoveScene (Just sceneName) Nothing) rid = object [ "requestId" .= rid
-                                                                  , "requestType" .= JSON.String "RemoveScene"
-                                                                  , "requestData" .= object [ "sceneName" .= sceneName ]
-                                                                  ]
-toRequestData (RemoveScene Nothing (Just sceneUuid)) rid = object [ "requestId" .= rid
-                                                                  , "requestType" .= JSON.String "RemoveScene"
-                                                                  , "requestData" .= object [ "sceneUuid" .= sceneUuid ]
-                                                                  ]
-toRequestData (SetSceneName (Just sceneName) Nothing newSceneName) rid = object [ "requestId" .= rid
-                                                                                , "requestType" .= JSON.String "SetSceneName"
-                                                                                , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                          , "newSceneName" .= newSceneName
-                                                                                                          ]
-                                                                                ]
-toRequestData (SetSceneName Nothing (Just sceneUuid) newSceneName) rid = object [ "requestId" .= rid
-                                                                                , "requestType" .= JSON.String "SetSceneName"
-                                                                                , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                          , "newSceneName" .= newSceneName
-                                                                                                          ]
-                                                                                ]
+toRequestData (RemoveScene (Name sceneName)) rid = object [ "requestId" .= rid
+                                                          , "requestType" .= JSON.String "RemoveScene"
+                                                          , "requestData" .= object [ "sceneName" .= sceneName ]
+                                                          ]
+toRequestData (RemoveScene (Uuid sceneUuid)) rid = object [ "requestId" .= rid
+                                                          , "requestType" .= JSON.String "RemoveScene"
+                                                          , "requestData" .= object [ "sceneUuid" .= sceneUuid ]
+                                                          ]
+toRequestData (SetSceneName (Name sceneName) newSceneName) rid = object [ "requestId" .= rid
+                                                                        , "requestType" .= JSON.String "SetSceneName"
+                                                                        , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                  , "newSceneName" .= newSceneName
+                                                                                                  ]
+                                                                        ]
+toRequestData (SetSceneName (Uuid sceneUuid) newSceneName) rid = object [ "requestId" .= rid
+                                                                        , "requestType" .= JSON.String "SetSceneName"
+                                                                        , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                  , "newSceneName" .= newSceneName
+                                                                                                  ]
+                                                                        ]
 toRequestData (GetSceneSceneTransitionOverride sceneName) rid = object [ "requestId" .= rid
                                                                        , "requestType" .= JSON.String "GetSceneSceneTransitionOverride"
                                                                        , "requestData" .= object [ "sceneName" .= sceneName ]
@@ -600,218 +621,226 @@ toRequestData (CreateInput sceneName inputName inputKind Nothing Nothing) rid = 
                                                                                                                  , "inputKind" .= inputKind
                                                                                                                  ]
                                                                                        ]
-toRequestData (RemoveInput (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                  , "requestType" .= JSON.String "RemoveInput"
-                                                                  , "requestData" .= object [ "inputName" .= inputName ]
-                                                                  ]
-toRequestData (RemoveInput Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                  , "requestType" .= JSON.String "RemoveInput"
-                                                                  , "requestData" .= object [ "inputUuid" .= inputUuid ]
-                                                                  ]
-toRequestData (SetInputName (Just inputName) Nothing newInputName) rid = object [ "requestId" .= rid
-                                                                               , "requestType" .= JSON.String "SetInputName"
-                                                                               , "requestData" .= object [ "inputName" .= inputName ]
-                                                                               ]
+toRequestData (RemoveInput (Name inputName)) rid = object [ "requestId" .= rid
+                                                          , "requestType" .= JSON.String "RemoveInput"
+                                                          , "requestData" .= object [ "inputName" .= inputName ]
+                                                          ]
+toRequestData (RemoveInput (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                          , "requestType" .= JSON.String "RemoveInput"
+                                                          , "requestData" .= object [ "inputUuid" .= inputUuid ]
+                                                          ]
+toRequestData (SetInputName (Name inputName) newInputName) rid = object [ "requestId" .= rid
+                                                                        , "requestType" .= JSON.String "SetInputName"
+                                                                        , "requestData" .= object [ "inputName" .= inputName
+                                                                                                  , "newInputName" .= newInputName
+                                                                                                  ]
+                                                                        ]
+toRequestData (SetInputName (Uuid inputUuid) newInputName) rid = object [ "requestId" .= rid
+                                                                        , "requestType" .= JSON.String "SetInputName"
+                                                                        , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                  , "newInputName" .= newInputName
+                                                                                                  ]
+                                                                        ]
 toRequestData (GetInputDefaultSettings inputKind) rid = object [ "requestId" .= rid
                                                                , "requestType" .= JSON.String "GetInputDefaultSettings"
                                                                , "requestData" .= object [ "inputKind" .= inputKind ]
                                                                ]
-toRequestData (GetInputSettings (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                       , "requestType" .= JSON.String "GetInputSettings"
-                                                                       , "requestData" .= object [ "inputName" .= inputName ]
-                                                                       ]
-toRequestData (GetInputSettings Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                       , "requestType" .= JSON.String "GetInputSettings"
-                                                                       , "requestUuid" .= object [ "inputName" .= inputUuid ]
-                                                                       ]
-toRequestData (SetInputSettings (Just inputName) Nothing inputSettings (Just overlay)) rid = object [ "requestId" .= rid
-                                                                                                    , "requestType" .= JSON.String "SetInputSettings"
+toRequestData (GetInputSettings (Name inputName)) rid = object [ "requestId" .= rid
+                                                               , "requestType" .= JSON.String "GetInputSettings"
+                                                               , "requestData" .= object [ "inputName" .= inputName ]
+                                                               ]
+toRequestData (GetInputSettings (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                               , "requestType" .= JSON.String "GetInputSettings"
+                                                               , "requestUuid" .= object [ "inputName" .= inputUuid ]
+                                                               ]
+toRequestData (SetInputSettings (Name inputName) inputSettings (Just overlay)) rid = object [ "requestId" .= rid
+                                                                                            , "requestType" .= JSON.String "SetInputSettings"
+                                                                                            , "requestData" .= object [ "inputName" .= inputName
+                                                                                                                      , "inputSettings" .= inputSettings
+                                                                                                                      , "overlay" .= overlay
+                                                                                                                      ]
+                                                                                            ]
+toRequestData (SetInputSettings (Name inputName) inputSettings Nothing) rid = object [ "requestId" .= rid
+                                                                                     , "requestType" .= JSON.String "SetInputSettings"
+                                                                                     , "requestData" .= object [ "inputName" .= inputName
+                                                                                                               , "inputSettings" .= inputSettings
+                                                                                                               ]
+                                                                                     ]
+toRequestData (SetInputSettings (Uuid inputUuid) inputSettings (Just overlay)) rid = object [ "requestId" .= rid
+                                                                                            , "requestType" .= JSON.String "SetInputSettings"
+                                                                                            , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                                      , "inputSettings" .= inputSettings
+                                                                                                                      , "overlay" .= overlay
+                                                                                                                      ]
+                                                                                            ]
+toRequestData (SetInputSettings (Uuid inputUuid) inputSettings Nothing) rid = object [ "requestId" .= rid
+                                                                                     , "requestType" .= JSON.String "SetInputSettings"
+                                                                                     , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                               , "inputSettings" .= inputSettings
+                                                                                                               ]
+                                                                                     ]
+toRequestData (GetInputMute (Name inputName)) rid = object [ "requestId" .= rid
+                                                           , "requestType" .= JSON.String "GetInputMute"
+                                                           , "requestData" .= object [ "inputName" .= inputName ]
+                                                           ]
+toRequestData (GetInputMute (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                           , "requestType" .= JSON.String "GetInputMute"
+                                                           , "requestData" .= object [ "inputUuid" .= inputUuid ]
+                                                           ]
+toRequestData (SetInputMute (Name inputName) inputMuted) rid = object [ "requestId" .= rid
+                                                                      , "requestType" .= JSON.String "SetInputMute"
+                                                                      , "requestData" .= object [ "inputName" .= inputName
+                                                                                                , "inputMuted" .= inputMuted
+                                                                                                ]
+                                                                      ]
+toRequestData (SetInputMute (Uuid inputUuid) inputMuted) rid = object [ "requestId" .= rid
+                                                                      , "requestType" .= JSON.String "SetInputMute"
+                                                                      , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                , "inputMuted" .= inputMuted
+                                                                                                ]
+                                                                      ]
+toRequestData (ToggleInputMute (Name inputName)) rid = object [ "requestId" .= rid
+                                                              , "requestType" .= JSON.String "ToggleInputMute"
+                                                              , "requestData" .= object [ "inputName" .= inputName ]
+                                                              ]
+toRequestData (ToggleInputMute (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                              , "requestType" .= JSON.String "ToggleInputMute"
+                                                              , "requestUuid" .= object [ "inputName" .= inputUuid ]
+                                                              ]
+toRequestData (GetInputVolume (Name inputName)) rid = object [ "requestId" .= rid
+                                                             , "requestType" .= JSON.String "GetInputVolume"
+                                                             , "requestData" .= object [ "inputName" .= inputName ]
+                                                             ]
+toRequestData (GetInputVolume (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                             , "requestType" .= JSON.String "GetInputVolume"
+                                                             , "requestUuid" .= object [ "inputName" .= inputUuid ]
+                                                             ]
+toRequestData (SetInputVolume (Name inputName) (Just (inputVolumeMul, inputVolumeDb))) rid = object [ "requestId" .= rid
+                                                                                                    , "requestType" .= JSON.String "SetInputVolume"
                                                                                                     , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                              , "inputSettings" .= inputSettings
-                                                                                                                              , "overlay" .= overlay
+                                                                                                                              , "inputVolumeMul" .= inputVolumeMul
+                                                                                                                              , "inputVolumeDb" .= inputVolumeDb
                                                                                                                               ]
                                                                                                     ]
-toRequestData (SetInputSettings (Just inputName) Nothing inputSettings Nothing) rid = object [ "requestId" .= rid
-                                                                                             , "requestType" .= JSON.String "SetInputSettings"
-                                                                                             , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                       , "inputSettings" .= inputSettings
-                                                                                                                       ]
-                                                                                             ]
-toRequestData (SetInputSettings Nothing (Just inputUuid) inputSettings (Just overlay)) rid = object [ "requestId" .= rid
-                                                                                                    , "requestType" .= JSON.String "SetInputSettings"
-                                                                                                    , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                              , "inputSettings" .= inputSettings
-                                                                                                                              , "overlay" .= overlay
-                                                                                                                              ]
-                                                                                                    ]
-toRequestData (SetInputSettings Nothing (Just inputUuid) inputSettings Nothing) rid = object [ "requestId" .= rid
-                                                                                             , "requestType" .= JSON.String "SetInputSettings"
-                                                                                             , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                       , "inputSettings" .= inputSettings
-                                                                                                                       ]
-                                                                                             ]
-toRequestData (GetInputMute (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                   , "requestType" .= JSON.String "GetInputMute"
-                                                                   , "requestData" .= object [ "inputName" .= inputName ]
-                                                                   ]
-toRequestData (GetInputMute Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                   , "requestType" .= JSON.String "GetInputMute"
-                                                                   , "requestData" .= object [ "inputUuid" .= inputUuid ]
-                                                                   ]
-toRequestData (SetInputMute (Just inputName) Nothing inputMuted) rid = object [ "requestId" .= rid
-                                                                              , "requestType" .= JSON.String "SetInputMute"
-                                                                              , "requestData" .= object [ "inputName" .= inputName
-                                                                                                        , "inputMuted" .= inputMuted
-                                                                                                        ]
-                                                                              ]
-toRequestData (SetInputMute Nothing (Just inputUuid) inputMuted) rid = object [ "requestId" .= rid
-                                                                              , "requestType" .= JSON.String "SetInputMute"
-                                                                              , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                        , "inputMuted" .= inputMuted
-                                                                                                        ]
-                                                                              ]
-toRequestData (ToggleInputMute (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                      , "requestType" .= JSON.String "ToggleInputMute"
-                                                                      , "requestData" .= object [ "inputName" .= inputName ]
-                                                                      ]
-toRequestData (ToggleInputMute Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                      , "requestType" .= JSON.String "ToggleInputMute"
-                                                                      , "requestUuid" .= object [ "inputName" .= inputUuid ]
-                                                                      ]
-toRequestData (GetInputVolume (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                     , "requestType" .= JSON.String "GetInputVolume"
+toRequestData (SetInputVolume (Name inputName) Nothing) rid = object [ "requestId" .= rid
+                                                                     , "requestType" .= JSON.String "SetInputVolume"
                                                                      , "requestData" .= object [ "inputName" .= inputName ]
                                                                      ]
-toRequestData (GetInputVolume Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                     , "requestType" .= JSON.String "GetInputVolume"
-                                                                     , "requestUuid" .= object [ "inputName" .= inputUuid ]
+toRequestData (SetInputVolume (Uuid inputUuid) (Just (inputVolumeMul, inputVolumeDb))) rid = object [ "requestId" .= rid
+                                                                                                    , "requestType" .= JSON.String "SetInputVolume"
+                                                                                                    , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                                              , "inputVolumeMul" .= inputVolumeMul
+                                                                                                                              , "inputVolumeDb" .= inputVolumeDb
+                                                                                                                              ]
+                                                                                                    ]
+toRequestData (SetInputVolume (Uuid inputUuid) Nothing) rid = object [ "requestId" .= rid
+                                                                     , "requestType" .= JSON.String "SetInputVolume"
+                                                                     , "requestData" .= object [ "inputUuid" .= inputUuid ]
                                                                      ]
-toRequestData (SetInputVolume (Just inputName) Nothing (Just (inputVolumeMul, inputVolumeDb))) rid = object [ "requestId" .= rid
-                                                                                                            , "requestType" .= JSON.String "SetInputVolume"
-                                                                                                            , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                                      , "inputVolumeMul" .= inputVolumeMul
-                                                                                                                                      , "inputVolumeDb" .= inputVolumeDb
-                                                                                                                                      ]
-                                                                                                            ]
-toRequestData (SetInputVolume (Just inputName) Nothing Nothing) rid = object [ "requestId" .= rid
-                                                                             , "requestType" .= JSON.String "SetInputVolume"
-                                                                             , "requestData" .= object [ "inputName" .= inputName ]
-                                                                             ]
-toRequestData (SetInputVolume Nothing (Just inputUuid) (Just (inputVolumeMul, inputVolumeDb))) rid = object [ "requestId" .= rid
-                                                                                                            , "requestType" .= JSON.String "SetInputVolume"
-                                                                                                            , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                                      , "inputVolumeMul" .= inputVolumeMul
-                                                                                                                                      , "inputVolumeDb" .= inputVolumeDb
-                                                                                                                                      ]
-                                                                                                            ]
-toRequestData (SetInputVolume Nothing (Just inputUuid) Nothing) rid = object [ "requestId" .= rid
-                                                                             , "requestType" .= JSON.String "SetInputVolume"
-                                                                             , "requestData" .= object [ "inputUuid" .= inputUuid ]
-                                                                             ]
-toRequestData (GetInputAudioBalance (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                           , "requestType" .= JSON.String "GetInputAudioBalance"
-                                                                           , "requestData" .= object [ "inputName" .= inputName ]
-                                                                           ]
-toRequestData (GetInputAudioBalance Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                           , "requestType" .= JSON.String "GetInputAudioBalance"
-                                                                           , "requestData" .= object [ "inputUuid" .= inputUuid ]
-                                                                           ]
-toRequestData (SetInputAudioBalance (Just inputName) Nothing inputAudioBalance) rid = object [ "requestId" .= rid
-                                                                                             , "requestType" .= JSON.String "SetInputAudioBalance"
-                                                                                             , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                       , "inputAudioBalance" .= inputAudioBalance
-                                                                                                                       ]
-                                                                                             ]
-toRequestData (SetInputAudioBalance Nothing (Just inputUuid) inputAudioBalance) rid = object [ "requestId" .= rid
-                                                                                             , "requestType" .= JSON.String "SetInputAudioBalance"
-                                                                                             , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                       , "inputAudioBalance" .= inputAudioBalance
-                                                                                                                       ]
-                                                                                             ]
-toRequestData (GetInputAudioSyncOffset (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                              , "requestType" .= JSON.String "GetInputAudioSyncOffset"
-                                                                              , "requestData" .= object [ "inputName" .= inputName ]
-                                                                              ]
-toRequestData (GetInputAudioSyncOffset Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                              , "requestType" .= JSON.String "GetInputAudioSyncOffset"
-                                                                              , "requestData" .= object [ "inputUuid" .= inputUuid ]
-                                                                              ]
-toRequestData (SetInputAudioSyncOffset (Just inputName) Nothing inputAudioSyncOffset) rid = object [ "requestId" .= rid
-                                                                                                   , "requestType" .= JSON.String "SetInputAudioSyncOffset"
-                                                                                                   , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                             , "inputAudioSyncOffset" .= inputAudioSyncOffset
-                                                                                                                             ]
-                                                                                                   ]
-toRequestData (SetInputAudioSyncOffset Nothing (Just inputUuid) inputAudioSyncOffset) rid = object [ "requestId" .= rid
-                                                                                                   , "requestType" .= JSON.String "SetInputAudioSyncOffset"
-                                                                                                   , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                             , "inputAudioSyncOffset" .= inputAudioSyncOffset
-                                                                                                                             ]
-                                                                                                   ]
-toRequestData (GetInputAudioMonitorType (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                               , "requestType" .= JSON.String "GetInputAudioMonitorType"
-                                                                               , "requestData" .= object [ "inputName" .= inputName ]
-                                                                               ]
-toRequestData (GetInputAudioMonitorType Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                               , "requestType" .= JSON.String "GetInputAudioMonitorType"
-                                                                               , "requestData" .= object [ "inputUuid" .= inputUuid ]
-                                                                               ]
-toRequestData (SetInputAudioMonitorType (Just inputName) Nothing monitorType) rid = object [ "requestId" .= rid
-                                                                                           , "requestType" .= JSON.String "SetInputAudioMonitorType"
+toRequestData (GetInputAudioBalance (Name inputName)) rid = object [ "requestId" .= rid
+                                                                   , "requestType" .= JSON.String "GetInputAudioBalance"
+                                                                   , "requestData" .= object [ "inputName" .= inputName ]
+                                                                   ]
+toRequestData (GetInputAudioBalance (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                                   , "requestType" .= JSON.String "GetInputAudioBalance"
+                                                                   , "requestData" .= object [ "inputUuid" .= inputUuid ]
+                                                                   ]
+toRequestData (SetInputAudioBalance (Name inputName) inputAudioBalance) rid = object [ "requestId" .= rid
+                                                                                     , "requestType" .= JSON.String "SetInputAudioBalance"
+                                                                                     , "requestData" .= object [ "inputName" .= inputName
+                                                                                                               , "inputAudioBalance" .= inputAudioBalance
+                                                                                                               ]
+                                                                                     ]
+toRequestData (SetInputAudioBalance (Uuid inputUuid) inputAudioBalance) rid = object [ "requestId" .= rid
+                                                                                     , "requestType" .= JSON.String "SetInputAudioBalance"
+                                                                                     , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                               , "inputAudioBalance" .= inputAudioBalance
+                                                                                                               ]
+                                                                                     ]
+toRequestData (GetInputAudioSyncOffset (Name inputName)) rid = object [ "requestId" .= rid
+                                                                      , "requestType" .= JSON.String "GetInputAudioSyncOffset"
+                                                                      , "requestData" .= object [ "inputName" .= inputName ]
+                                                                      ]
+toRequestData (GetInputAudioSyncOffset (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                                      , "requestType" .= JSON.String "GetInputAudioSyncOffset"
+                                                                      , "requestData" .= object [ "inputUuid" .= inputUuid ]
+                                                                      ]
+toRequestData (SetInputAudioSyncOffset (Name inputName) inputAudioSyncOffset) rid = object [ "requestId" .= rid
+                                                                                           , "requestType" .= JSON.String "SetInputAudioSyncOffset"
                                                                                            , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                     , "monitorType" .= monitorType
+                                                                                                                     , "inputAudioSyncOffset" .= inputAudioSyncOffset
                                                                                                                      ]
                                                                                            ]
-toRequestData (SetInputAudioMonitorType Nothing (Just inputUuid) monitorType) rid = object [ "requestId" .= rid
-                                                                                           , "requestType" .= JSON.String "SetInputAudioMonitorType"
+toRequestData (SetInputAudioSyncOffset (Uuid inputUuid) inputAudioSyncOffset) rid = object [ "requestId" .= rid
+                                                                                           , "requestType" .= JSON.String "SetInputAudioSyncOffset"
                                                                                            , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                     , "monitorType" .= monitorType
+                                                                                                                     , "inputAudioSyncOffset" .= inputAudioSyncOffset
                                                                                                                      ]
                                                                                            ]
-toRequestData (GetInputAudioTracks (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                          , "requestType" .= JSON.String "GetInputAudioTracks"
-                                                                          , "requestData" .= object [ "inputName" .= inputName ]
-                                                                          ]
-toRequestData (GetInputAudioTracks Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                          , "requestType" .= JSON.String "GetInputAudioTracks"
-                                                                          , "requestData" .= object [ "inputUuid" .= inputUuid ]
-                                                                          ]
-toRequestData (SetInputAudioTracks (Just inputName) Nothing inputAudioTracks) rid = object [ "requestId" .= rid
-                                                                                           , "requestType" .= JSON.String "SetInputAudioTracks"
-                                                                                           , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                     , "inputAudioTracks" .= inputAudioTracks
-                                                                                                                     ]
-                                                                                           ]
-toRequestData (SetInputAudioTracks Nothing (Just inputUuid) inputAudioTracks) rid = object [ "requestId" .= rid
-                                                                                           , "requestType" .= JSON.String "SetInputAudioTracks"
-                                                                                           , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                     , "inputAudioTracks" .= inputAudioTracks
-                                                                                                                     ]
-                                                                                           ]
-toRequestData (GetInputPropertiesListPropertyItems (Just inputName) Nothing propertyName) rid = object [ "requestId" .= rid
-                                                                                                       , "requestType" .= JSON.String "GetInputPropertiesListPropertyItems"
-                                                                                                       , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                                 , "propertyName" .= propertyName
-                                                                                                                                 ]
-                                                                                                       ]
-toRequestData (GetInputPropertiesListPropertyItems Nothing (Just inputUuid) propertyName) rid = object [ "requestId" .= rid
-                                                                                                       , "requestType" .= JSON.String "GetInputPropertiesListPropertyItems"
-                                                                                                       , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                                 , "propertyName" .= propertyName
-                                                                                                                                 ]
-                                                                                                       ]
-toRequestData (PressInputPropertiesButton (Just inputName) Nothing propertyName) rid = object [ "requestId" .= rid
-                                                                                              , "requestType" .= JSON.String "PressInputPropertiesButton"
-                                                                                              , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                        , "propertyName" .= propertyName
-                                                                                                                        ]
-                                                                                              ]
-toRequestData (PressInputPropertiesButton Nothing (Just inputUuid) propertyName) rid = object [ "requestId" .= rid
-                                                                                              , "requestType" .= JSON.String "PressInputPropertiesButton"
-                                                                                              , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                        , "propertyName" .= propertyName
-                                                                                                                        ]
-                                                                                              ]
+toRequestData (GetInputAudioMonitorType (Name inputName)) rid = object [ "requestId" .= rid
+                                                                       , "requestType" .= JSON.String "GetInputAudioMonitorType"
+                                                                       , "requestData" .= object [ "inputName" .= inputName ]
+                                                                       ]
+toRequestData (GetInputAudioMonitorType (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                                       , "requestType" .= JSON.String "GetInputAudioMonitorType"
+                                                                       , "requestData" .= object [ "inputUuid" .= inputUuid ]
+                                                                       ]
+toRequestData (SetInputAudioMonitorType (Name inputName) monitorType) rid = object [ "requestId" .= rid
+                                                                                   , "requestType" .= JSON.String "SetInputAudioMonitorType"
+                                                                                   , "requestData" .= object [ "inputName" .= inputName
+                                                                                                             , "monitorType" .= monitorType
+                                                                                                             ]
+                                                                                   ]
+toRequestData (SetInputAudioMonitorType (Uuid inputUuid) monitorType) rid = object [ "requestId" .= rid
+                                                                                   , "requestType" .= JSON.String "SetInputAudioMonitorType"
+                                                                                   , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                             , "monitorType" .= monitorType
+                                                                                                             ]
+                                                                                   ]
+toRequestData (GetInputAudioTracks (Name inputName)) rid = object [ "requestId" .= rid
+                                                                  , "requestType" .= JSON.String "GetInputAudioTracks"
+                                                                  , "requestData" .= object [ "inputName" .= inputName ]
+                                                                  ]
+toRequestData (GetInputAudioTracks (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                                  , "requestType" .= JSON.String "GetInputAudioTracks"
+                                                                  , "requestData" .= object [ "inputUuid" .= inputUuid ]
+                                                                  ]
+toRequestData (SetInputAudioTracks (Name inputName) inputAudioTracks) rid = object [ "requestId" .= rid
+                                                                                   , "requestType" .= JSON.String "SetInputAudioTracks"
+                                                                                   , "requestData" .= object [ "inputName" .= inputName
+                                                                                                             , "inputAudioTracks" .= inputAudioTracks
+                                                                                                             ]
+                                                                                   ]
+toRequestData (SetInputAudioTracks (Uuid inputUuid) inputAudioTracks) rid = object [ "requestId" .= rid
+                                                                                   , "requestType" .= JSON.String "SetInputAudioTracks"
+                                                                                   , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                             , "inputAudioTracks" .= inputAudioTracks
+                                                                                                             ]
+                                                                                   ]
+toRequestData (GetInputPropertiesListPropertyItems (Name inputName) propertyName) rid = object [ "requestId" .= rid
+                                                                                               , "requestType" .= JSON.String "GetInputPropertiesListPropertyItems"
+                                                                                               , "requestData" .= object [ "inputName" .= inputName
+                                                                                                                         , "propertyName" .= propertyName
+                                                                                                                         ]
+                                                                                               ]
+toRequestData (GetInputPropertiesListPropertyItems (Uuid inputUuid) propertyName) rid = object [ "requestId" .= rid
+                                                                                               , "requestType" .= JSON.String "GetInputPropertiesListPropertyItems"
+                                                                                               , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                                         , "propertyName" .= propertyName
+                                                                                                                         ]
+                                                                                               ]
+toRequestData (PressInputPropertiesButton (Name inputName) propertyName) rid = object [ "requestId" .= rid
+                                                                                      , "requestType" .= JSON.String "PressInputPropertiesButton"
+                                                                                      , "requestData" .= object [ "inputName" .= inputName
+                                                                                                                , "propertyName" .= propertyName
+                                                                                                                ]
+                                                                                      ]
+toRequestData (PressInputPropertiesButton (Uuid inputUuid) propertyName) rid = object [ "requestId" .= rid
+                                                                                      , "requestType" .= JSON.String "PressInputPropertiesButton"
+                                                                                      , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                                , "propertyName" .= propertyName
+                                                                                                                ]
+                                                                                      ]
 toRequestData GetTransitionKindList rid = object [ "requestId" .= rid
                                                  , "requestType" .= JSON.String "GetTransitionKindList"
                                                  ]
@@ -858,406 +887,406 @@ toRequestData (SetTBarPosition position Nothing) rid = object [ "requestId" .= r
 toRequestData GetSourceFilterKindList rid = object [ "requestId" .= rid
                                                    , "requestType" .= JSON.String "GetSourceFilterKindList"
                                                    ]
-toRequestData (GetSourceFilterList (Just sourceName) Nothing) rid = object [ "requestId" .= rid
-                                                                           , "requestType" .= JSON.String "GetSourceFilterList"
-                                                                           , "requestData" .= object [ "sourceName" .= sourceName ]
-                                                                           ]
-toRequestData (GetSourceFilterList Nothing (Just sourceUuid)) rid = object [ "requestId" .= rid
-                                                                           , "requestType" .= JSON.String "GetSourceFilterList"
-                                                                           , "requestData" .= object [ "sourceUuid" .= sourceUuid ]
-                                                                           ]
+toRequestData (GetSourceFilterList (Name sourceName)) rid = object [ "requestId" .= rid
+                                                                   , "requestType" .= JSON.String "GetSourceFilterList"
+                                                                   , "requestData" .= object [ "sourceName" .= sourceName ]
+                                                                   ]
+toRequestData (GetSourceFilterList (Uuid sourceUuid)) rid = object [ "requestId" .= rid
+                                                                   , "requestType" .= JSON.String "GetSourceFilterList"
+                                                                   , "requestData" .= object [ "sourceUuid" .= sourceUuid ]
+                                                                   ]
 toRequestData (GetSourceFilterDefaultSettings filterKind) rid = object [ "requestId" .= rid
                                                                        , "requestType" .= JSON.String "GetSourceFilterDefaultSettings"
                                                                        , "requestData" .= object [ "filterKind" .= filterKind ]
                                                                        ]
-toRequestData (CreateSourceFilter (Just sourceName) Nothing filterName filterKind filterSettings) rid = object [ "requestId" .= rid
-                                                                                                               , "requestType" .= JSON.String "CreateSourceFilter"
-                                                                                                               , "requestData" .= object [ "sourceName" .= sourceName
-                                                                                                                                         , "filterName" .= filterName
-                                                                                                                                         , "filterKind" .= filterKind
-                                                                                                                                         , "filterSettings" .= filterSettings
-                                                                                                                                         ]
-                                                                                                               ]
-toRequestData (CreateSourceFilter Nothing (Just sourceUuid) filterName filterKind filterSettings) rid = object [ "requestId" .= rid
-                                                                                                               , "requestType" .= JSON.String "CreateSourceFilter"
-                                                                                                               , "requestData" .= object [ "sourceUuid" .= sourceUuid
-                                                                                                                                         , "filterName" .= filterName
-                                                                                                                                         , "filterKind" .= filterKind
-                                                                                                                                         , "filterSettings" .= filterSettings
-                                                                                                                                         ]
-                                                                                                               ]
-toRequestData (RemoveSourceFilter (Just sourceName) Nothing filterName) rid = object [ "requestId" .= rid
-                                                                                     , "requestType" .= JSON.String "RemoveSourceFilter"
-                                                                                     , "requestData" .= object [ "sourceName" .= sourceName
-                                                                                                               , "filterName" .= filterName
-                                                                                                               ]
-                                                                                     ]
-toRequestData (RemoveSourceFilter Nothing (Just sourceUuid) filterName) rid = object [ "requestId" .= rid
-                                                                                     , "requestType" .= JSON.String "RemoveSourceFilter"
-                                                                                     , "requestData" .= object [ "sourceUuid" .= sourceUuid
-                                                                                                               , "filterName" .= filterName
-                                                                                                               ]
-                                                                                     ]
-toRequestData (SetSourceFilterName (Just sourceName) Nothing filterName newFilterName) rid = object [ "requestId" .= rid
-                                                                                                    , "requestType" .= JSON.String "SetSourceFilterName"
-                                                                                                    , "requestData" .= object [ "sourceName" .= sourceName
-                                                                                                                              , "filterName" .= filterName
-                                                                                                                              , "newFilterName" .= newFilterName
-                                                                                                                              ]
+toRequestData (CreateSourceFilter (Name sourceName) filterName filterKind filterSettings) rid = object [ "requestId" .= rid
+                                                                                                       , "requestType" .= JSON.String "CreateSourceFilter"
+                                                                                                       , "requestData" .= object [ "sourceName" .= sourceName
+                                                                                                                                 , "filterName" .= filterName
+                                                                                                                                 , "filterKind" .= filterKind
+                                                                                                                                 , "filterSettings" .= filterSettings
+                                                                                                                                 ]
+                                                                                                       ]
+toRequestData (CreateSourceFilter (Uuid sourceUuid) filterName filterKind filterSettings) rid = object [ "requestId" .= rid
+                                                                                                       , "requestType" .= JSON.String "CreateSourceFilter"
+                                                                                                       , "requestData" .= object [ "sourceUuid" .= sourceUuid
+                                                                                                                                 , "filterName" .= filterName
+                                                                                                                                 , "filterKind" .= filterKind
+                                                                                                                                 , "filterSettings" .= filterSettings
+                                                                                                                                 ]
+                                                                                                       ]
+toRequestData (RemoveSourceFilter (Name sourceName) filterName) rid = object [ "requestId" .= rid
+                                                                             , "requestType" .= JSON.String "RemoveSourceFilter"
+                                                                             , "requestData" .= object [ "sourceName" .= sourceName
+                                                                                                       , "filterName" .= filterName
+                                                                                                       ]
+                                                                             ]
+toRequestData (RemoveSourceFilter (Uuid sourceUuid) filterName) rid = object [ "requestId" .= rid
+                                                                             , "requestType" .= JSON.String "RemoveSourceFilter"
+                                                                             , "requestData" .= object [ "sourceUuid" .= sourceUuid
+                                                                                                       , "filterName" .= filterName
+                                                                                                       ]
+                                                                             ]
+toRequestData (SetSourceFilterName (Name sourceName) filterName newFilterName) rid = object [ "requestId" .= rid
+                                                                                            , "requestType" .= JSON.String "SetSourceFilterName"
+                                                                                            , "requestData" .= object [ "sourceName" .= sourceName
+                                                                                                                      , "filterName" .= filterName
+                                                                                                                      , "newFilterName" .= newFilterName
+                                                                                                                      ]
+                                                                                            ]
+toRequestData (SetSourceFilterName (Uuid sourceUuid) filterName newFilterName) rid = object [ "requestId" .= rid
+                                                                                            , "requestType" .= JSON.String "SetSourceFilterName"
+                                                                                            , "requestData" .= object [ "sourceUuid" .= sourceUuid
+                                                                                                                      , "filterName" .= filterName
+                                                                                                                      , "newFilterName" .= newFilterName
+                                                                                                                      ]
+                                                                                            ]
+toRequestData (GetSourceFilter (Name sourceName) filterName) rid = object [ "requestId" .= rid
+                                                                          , "requestType" .= JSON.String "GetSourceFilter"
+                                                                          , "requestData" .= object [ "sourceName" .= sourceName
+                                                                                                    , "filterName" .= filterName
                                                                                                     ]
-toRequestData (SetSourceFilterName Nothing (Just sourceUuid) filterName newFilterName) rid = object [ "requestId" .= rid
-                                                                                                    , "requestType" .= JSON.String "SetSourceFilterName"
-                                                                                                    , "requestData" .= object [ "sourceUuid" .= sourceUuid
-                                                                                                                              , "filterName" .= filterName
-                                                                                                                              , "newFilterName" .= newFilterName
-                                                                                                                              ]
+                                                                          ]
+toRequestData (GetSourceFilter (Uuid sourceUuid) filterName) rid = object [ "requestId" .= rid
+                                                                          , "requestType" .= JSON.String "GetSourceFilter"
+                                                                          , "requestData" .= object [ "sourceUuid" .= sourceUuid
+                                                                                                    , "filterName" .= filterName
                                                                                                     ]
-toRequestData (GetSourceFilter (Just sourceName) Nothing filterName) rid = object [ "requestId" .= rid
-                                                                                  , "requestType" .= JSON.String "GetSourceFilter"
-                                                                                  , "requestData" .= object [ "sourceName" .= sourceName
-                                                                                                            , "filterName" .= filterName
-                                                                                                            ]
-                                                                                  ]
-toRequestData (GetSourceFilter Nothing (Just sourceUuid) filterName) rid = object [ "requestId" .= rid
-                                                                                  , "requestType" .= JSON.String "GetSourceFilter"
-                                                                                  , "requestData" .= object [ "sourceUuid" .= sourceUuid
-                                                                                                            , "filterName" .= filterName
-                                                                                                            ]
-                                                                                  ]
-toRequestData (SetSourceFilterIndex (Just sourceName) Nothing filterName filterIndex) rid = object [ "requestId" .= rid
-                                                                                                   , "requestType" .= JSON.String "SetSourceFilterIndex"
-                                                                                                   , "requestData" .= object [ "sourceName" .= sourceName
-                                                                                                                             , "filterName" .= filterName
-                                                                                                                             , "filterIndex" .= filterIndex
-                                                                                                                             ]
-                                                                                                   ]
-toRequestData (SetSourceFilterIndex Nothing (Just sourceUuid) filterName filterIndex) rid = object [ "requestId" .= rid
-                                                                                                   , "requestType" .= JSON.String "SetSourceFilterIndex"
-                                                                                                   , "requestData" .= object [ "sourceUuid" .= sourceUuid
-                                                                                                                             , "filterName" .= filterName
-                                                                                                                             , "filterIndex" .= filterIndex
-                                                                                                                             ]
-                                                                                                   ]
-toRequestData (SetSourceFilterSettings (Just sourceName) Nothing filterName filterSettings (Just overlay)) rid = object [ "requestId" .= rid
-                                                                                                                       , "requestType" .= JSON.String "SetSourceFilterSettings"
-                                                                                                                       , "requestData" .= object [ "sourceName" .= sourceName
-                                                                                                                                                 , "filterName" .= filterName
-                                                                                                                                                 , "filterSettings" .= filterSettings
-                                                                                                                                                 , "overlay" .= overlay
-                                                                                                                                                 ]
-                                                                                                                       ]
-toRequestData (SetSourceFilterSettings (Just sourceName) Nothing filterName filterSettings Nothing) rid = object [ "requestId" .= rid
+                                                                          ]
+toRequestData (SetSourceFilterIndex (Name sourceName) filterName filterIndex) rid = object [ "requestId" .= rid
+                                                                                           , "requestType" .= JSON.String "SetSourceFilterIndex"
+                                                                                           , "requestData" .= object [ "sourceName" .= sourceName
+                                                                                                                     , "filterName" .= filterName
+                                                                                                                     , "filterIndex" .= filterIndex
+                                                                                                                     ]
+                                                                                           ]
+toRequestData (SetSourceFilterIndex (Uuid sourceUuid) filterName filterIndex) rid = object [ "requestId" .= rid
+                                                                                           , "requestType" .= JSON.String "SetSourceFilterIndex"
+                                                                                           , "requestData" .= object [ "sourceUuid" .= sourceUuid
+                                                                                                                     , "filterName" .= filterName
+                                                                                                                     , "filterIndex" .= filterIndex
+                                                                                                                     ]
+                                                                                           ]
+toRequestData (SetSourceFilterSettings (Name sourceName) filterName filterSettings (Just overlay)) rid = object [ "requestId" .= rid
                                                                                                                 , "requestType" .= JSON.String "SetSourceFilterSettings"
                                                                                                                 , "requestData" .= object [ "sourceName" .= sourceName
                                                                                                                                           , "filterName" .= filterName
                                                                                                                                           , "filterSettings" .= filterSettings
+                                                                                                                                          , "overlay" .= overlay
                                                                                                                                           ]
                                                                                                                 ]
-toRequestData (SetSourceFilterSettings Nothing (Just sourceUuid) filterName filterSettings (Just overlay)) rid = object [ "requestId" .= rid
-                                                                                                                       , "requestType" .= JSON.String "SetSourceFilterSettings"
-                                                                                                                       , "requestData" .= object [ "sourceUuid" .= sourceUuid
-                                                                                                                                                 , "filterName" .= filterName
-                                                                                                                                                 , "filterSettings" .= filterSettings
-                                                                                                                                                 , "overlay" .= overlay
-                                                                                                                                                 ]
-                                                                                                                       ]
-toRequestData (SetSourceFilterSettings Nothing (Just sourceUuid) filterName filterSettings Nothing) rid = object [ "requestId" .= rid
+toRequestData (SetSourceFilterSettings (Name sourceName) filterName filterSettings Nothing) rid = object [ "requestId" .= rid
+                                                                                                         , "requestType" .= JSON.String "SetSourceFilterSettings"
+                                                                                                         , "requestData" .= object [ "sourceName" .= sourceName
+                                                                                                                                   , "filterName" .= filterName
+                                                                                                                                   , "filterSettings" .= filterSettings
+                                                                                                                                   ]
+                                                                                                         ]
+toRequestData (SetSourceFilterSettings (Uuid sourceUuid) filterName filterSettings (Just overlay)) rid = object [ "requestId" .= rid
                                                                                                                 , "requestType" .= JSON.String "SetSourceFilterSettings"
                                                                                                                 , "requestData" .= object [ "sourceUuid" .= sourceUuid
                                                                                                                                           , "filterName" .= filterName
                                                                                                                                           , "filterSettings" .= filterSettings
+                                                                                                                                          , "overlay" .= overlay
                                                                                                                                           ]
                                                                                                                 ]
-toRequestData (SetSourceFilterEnabled (Just sourceName) Nothing filterName filterEnabled) rid = object [ "requestId" .= rid
-                                                                                                      , "requestType" .= JSON.String "SetSourceFilterEnabled"
-                                                                                                      , "requestData" .= object [ "sourceName" .= sourceName
-                                                                                                                                , "filterName" .= filterName
-                                                                                                                                , "filterEnabled" .= filterEnabled
-                                                                                                                                ]
-                                                                                                      ]
-toRequestData (SetSourceFilterEnabled Nothing (Just sourceUuid) filterName filterEnabled) rid = object [ "requestId" .= rid
-                                                                                                      , "requestType" .= JSON.String "SetSourceFilterEnabled"
-                                                                                                      , "requestData" .= object [ "sourceUuid" .= sourceUuid
-                                                                                                                                , "filterName" .= filterName
-                                                                                                                                , "filterEnabled" .= filterEnabled
-                                                                                                                                ]
-                                                                                                      ]
-toRequestData (GetSceneItemList (Just sceneName) Nothing) rid = object [ "requestId" .= rid
-                                                                       , "requestType" .= JSON.String "GetSceneItemList"
-                                                                       , "requestData" .= object [ "sceneName" .= sceneName ]
-                                                                       ]
-toRequestData (GetSceneItemList Nothing (Just sceneUuid)) rid = object [ "requestId" .= rid
-                                                                       , "requestType" .= JSON.String "GetSceneItemList"
-                                                                       , "requestData" .= object [ "sceneUuid" .= sceneUuid ]
-                                                                       ]
-toRequestData (GetGroupSceneItemList (Just sceneName) Nothing) rid = object [ "requestId" .= rid
-                                                                            , "requestType" .= JSON.String "GetGroupSceneItemList"
-                                                                            , "requestData" .= object [ "sceneName" .= sceneName ]
-                                                                            ]
-toRequestData (GetGroupSceneItemList Nothing (Just sceneUuid)) rid = object [ "requestId" .= rid
-                                                                            , "requestType" .= JSON.String "GetGroupSceneItemList"
-                                                                            , "requestData" .= object [ "sceneUuid" .= sceneUuid ]
-                                                                            ]
-toRequestData (GetSceneItemId (Just sceneName) Nothing sourceName (Just searchOffset)) rid = object [ "requestId" .= rid
-                                                                                                    , "requestType" .= JSON.String "GetSceneItemId"
-                                                                                                    , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                              , "sourceName" .= sourceName
-                                                                                                                              , "searchOffset" .= searchOffset
-                                                                                                                              ]
-                                                                                                    ]
-toRequestData (GetSceneItemId (Just sceneName) Nothing sourceName Nothing) rid = object [ "requestId" .= rid
-                                                                                        , "requestType" .= JSON.String "GetSceneItemId"
+toRequestData (SetSourceFilterSettings (Uuid sourceUuid) filterName filterSettings Nothing) rid = object [ "requestId" .= rid
+                                                                                                         , "requestType" .= JSON.String "SetSourceFilterSettings"
+                                                                                                         , "requestData" .= object [ "sourceUuid" .= sourceUuid
+                                                                                                                                   , "filterName" .= filterName
+                                                                                                                                   , "filterSettings" .= filterSettings
+                                                                                                                                   ]
+                                                                                                         ]
+toRequestData (SetSourceFilterEnabled (Name sourceName) filterName filterEnabled) rid = object [ "requestId" .= rid
+                                                                                               , "requestType" .= JSON.String "SetSourceFilterEnabled"
+                                                                                               , "requestData" .= object [ "sourceName" .= sourceName
+                                                                                                                         , "filterName" .= filterName
+                                                                                                                         , "filterEnabled" .= filterEnabled
+                                                                                                                         ]
+                                                                                               ]
+toRequestData (SetSourceFilterEnabled (Uuid sourceUuid) filterName filterEnabled) rid = object [ "requestId" .= rid
+                                                                                               , "requestType" .= JSON.String "SetSourceFilterEnabled"
+                                                                                               , "requestData" .= object [ "sourceUuid" .= sourceUuid
+                                                                                                                         , "filterName" .= filterName
+                                                                                                                         , "filterEnabled" .= filterEnabled
+                                                                                                                         ]
+                                                                                               ]
+toRequestData (GetSceneItemList (Name sceneName)) rid = object [ "requestId" .= rid
+                                                               , "requestType" .= JSON.String "GetSceneItemList"
+                                                               , "requestData" .= object [ "sceneName" .= sceneName ]
+                                                               ]
+toRequestData (GetSceneItemList (Uuid sceneUuid)) rid = object [ "requestId" .= rid
+                                                               , "requestType" .= JSON.String "GetSceneItemList"
+                                                               , "requestData" .= object [ "sceneUuid" .= sceneUuid ]
+                                                               ]
+toRequestData (GetGroupSceneItemList (Name sceneName)) rid = object [ "requestId" .= rid
+                                                                    , "requestType" .= JSON.String "GetGroupSceneItemList"
+                                                                    , "requestData" .= object [ "sceneName" .= sceneName ]
+                                                                    ]
+toRequestData (GetGroupSceneItemList (Uuid sceneUuid)) rid = object [ "requestId" .= rid
+                                                                    , "requestType" .= JSON.String "GetGroupSceneItemList"
+                                                                    , "requestData" .= object [ "sceneUuid" .= sceneUuid ]
+                                                                    ]
+toRequestData (GetSceneItemId (Name sceneName) sourceName (Just searchOffset)) rid = object [ "requestId" .= rid
+                                                                                            , "requestType" .= JSON.String "GetSceneItemId"
+                                                                                            , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                                      , "sourceName" .= sourceName
+                                                                                                                      , "searchOffset" .= searchOffset
+                                                                                                                      ]
+                                                                                            ]
+toRequestData (GetSceneItemId (Name sceneName) sourceName Nothing) rid = object [ "requestId" .= rid
+                                                                                , "requestType" .= JSON.String "GetSceneItemId"
+                                                                                , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                          , "sourceName" .= sourceName
+                                                                                                          ]
+                                                                                ]
+toRequestData (GetSceneItemId (Uuid sceneUuid) sourceName (Just searchOffset)) rid = object [ "requestId" .= rid
+                                                                                            , "requestType" .= JSON.String "GetSceneItemId"
+                                                                                            , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                                      , "sourceName" .= sourceName
+                                                                                                                      , "searchOffset" .= searchOffset
+                                                                                                                      ]
+                                                                                            ]
+toRequestData (GetSceneItemId (Uuid sceneUuid) sourceName Nothing) rid = object [ "requestId" .= rid
+                                                                                , "requestType" .= JSON.String "GetSceneItemId"
+                                                                                , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                          , "sourceName" .= sourceName
+                                                                                                          ]
+                                                                                ]
+toRequestData (GetSceneItemSource (Name sceneName) sceneItemId) rid = object [ "requestId" .= rid
+                                                                             , "requestType" .= JSON.String "GetSceneItemSource"
+                                                                             , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                       , "sceneItemId" .= sceneItemId
+                                                                                                       ]
+                                                                             ]
+toRequestData (GetSceneItemSource (Uuid sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
+                                                                             , "requestType" .= JSON.String "GetSceneItemSource"
+                                                                             , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                       , "sceneItemId" .= sceneItemId
+                                                                                                       ]
+                                                                             ]
+toRequestData (CreateSceneItem (Name sceneName) (Name sourceName) (Just sceneItemEnabled)) rid = object [ "requestId" .= rid
+                                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
+                                                                                                        , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                                                  , "sourceName" .= sourceName
+                                                                                                                                  , "sceneItemEnabled" .= sceneItemEnabled
+                                                                                                                                  ]
+                                                                                                        ]
+toRequestData (CreateSceneItem (Name sceneName) (Name sourceName) Nothing) rid = object [ "requestId" .= rid
+                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
                                                                                         , "requestData" .= object [ "sceneName" .= sceneName
                                                                                                                   , "sourceName" .= sourceName
                                                                                                                   ]
                                                                                         ]
-toRequestData (GetSceneItemId Nothing (Just sceneUuid) sourceName (Just searchOffset)) rid = object [ "requestId" .= rid
-                                                                                                    , "requestType" .= JSON.String "GetSceneItemId"
-                                                                                                    , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                              , "sourceName" .= sourceName
-                                                                                                                              , "searchOffset" .= searchOffset
-                                                                                                                              ]
-                                                                                                    ]
-toRequestData (GetSceneItemId Nothing (Just sceneUuid) sourceName Nothing) rid = object [ "requestId" .= rid
-                                                                                        , "requestType" .= JSON.String "GetSceneItemId"
+toRequestData (CreateSceneItem (Name sceneName) (Uuid sourceUuid) (Just sceneItemEnabled)) rid = object [ "requestId" .= rid
+                                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
+                                                                                                        , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                                                  , "sourceUuid" .= sourceUuid
+                                                                                                                                  , "sceneItemEnabled" .= sceneItemEnabled
+                                                                                                                                  ]
+                                                                                                        ]
+toRequestData (CreateSceneItem (Name sceneName) (Uuid sourceUuid) Nothing) rid = object [ "requestId" .= rid
+                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
+                                                                                        , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                                  , "sourceUuid" .= sourceUuid
+                                                                                                                  ]
+                                                                                        ]
+toRequestData (CreateSceneItem (Uuid sceneUuid) (Name sourceName) (Just sceneItemEnabled)) rid = object [ "requestId" .= rid
+                                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
+                                                                                                        , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                                                  , "sourceName" .= sourceName
+                                                                                                                                  , "sceneItemEnabled" .= sceneItemEnabled
+                                                                                                                                  ]
+                                                                                                        ]
+toRequestData (CreateSceneItem (Uuid sceneUuid) (Name sourceName) Nothing) rid = object [ "requestId" .= rid
+                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
                                                                                         , "requestData" .= object [ "sceneUuid" .= sceneUuid
                                                                                                                   , "sourceName" .= sourceName
                                                                                                                   ]
                                                                                         ]
-toRequestData (GetSceneItemSource (Just sceneName) Nothing sceneItemId) rid = object [ "requestId" .= rid
-                                                                                     , "requestType" .= JSON.String "GetSceneItemSource"
-                                                                                     , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                               , "sceneItemId" .= sceneItemId
-                                                                                                               ]
-                                                                                     ]
-toRequestData (GetSceneItemSource Nothing (Just sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
-                                                                                     , "requestType" .= JSON.String "GetSceneItemSource"
-                                                                                     , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                               , "sceneItemId" .= sceneItemId
-                                                                                                               ]
-                                                                                     ]
-toRequestData (CreateSceneItem (Just sceneName) Nothing (Just sourceName) Nothing (Just sceneItemEnabled)) rid = object [ "requestId" .= rid
-                                                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
-                                                                                                                        , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                                                  , "sourceName" .= sourceName
-                                                                                                                                                  , "sceneItemEnabled" .= sceneItemEnabled
-                                                                                                                                                  ]
-                                                                                                                        ]
-toRequestData (CreateSceneItem (Just sceneName) Nothing (Just sourceName) Nothing Nothing) rid = object [ "requestId" .= rid
-                                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
-                                                                                                        , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                                  , "sourceName" .= sourceName
-                                                                                                                                  ]
-                                                                                                        ]
-toRequestData (CreateSceneItem (Just sceneName) Nothing Nothing (Just sourceUuid) (Just sceneItemEnabled)) rid = object [ "requestId" .= rid
-                                                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
-                                                                                                                        , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                                                  , "sourceUuid" .= sourceUuid
-                                                                                                                                                  , "sceneItemEnabled" .= sceneItemEnabled
-                                                                                                                                                  ]
-                                                                                                                        ]
-toRequestData (CreateSceneItem (Just sceneName) Nothing Nothing (Just sourceUuid) Nothing) rid = object [ "requestId" .= rid
-                                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
-                                                                                                        , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                                  , "sourceUuid" .= sourceUuid
-                                                                                                                                  ]
-                                                                                                        ]
-toRequestData (CreateSceneItem Nothing (Just sceneUuid) (Just sourceName) Nothing (Just sceneItemEnabled)) rid = object [ "requestId" .= rid
-                                                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
-                                                                                                                        , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                                                  , "sourceName" .= sourceName
-                                                                                                                                                  , "sceneItemEnabled" .= sceneItemEnabled
-                                                                                                                                                  ]
-                                                                                                                        ]
-toRequestData (CreateSceneItem Nothing (Just sceneUuid) (Just sourceName) Nothing Nothing) rid = object [ "requestId" .= rid
-                                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
-                                                                                                        , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                                  , "sourceName" .= sourceName
-                                                                                                                                  ]
-                                                                                                        ]
-toRequestData (CreateSceneItem Nothing (Just sceneUuid) Nothing (Just sourceUuid) (Just sceneItemEnabled)) rid = object [ "requestId" .= rid
-                                                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
-                                                                                                                        , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                                                  , "sourceUuid" .= sourceUuid
-                                                                                                                                                  , "sceneItemEnabled" .= sceneItemEnabled
-                                                                                                                                                  ]
-                                                                                                                        ]
-toRequestData (CreateSceneItem Nothing (Just sceneUuid) Nothing (Just sourceUuid) Nothing) rid = object [ "requestId" .= rid
+toRequestData (CreateSceneItem (Uuid sceneUuid) (Uuid sourceUuid) (Just sceneItemEnabled)) rid = object [ "requestId" .= rid
                                                                                                         , "requestType" .= JSON.String "CreateSceneItem"
                                                                                                         , "requestData" .= object [ "sceneUuid" .= sceneUuid
                                                                                                                                   , "sourceUuid" .= sourceUuid
+                                                                                                                                  , "sceneItemEnabled" .= sceneItemEnabled
                                                                                                                                   ]
                                                                                                         ]
-toRequestData (RemoveSceneItem (Just sceneName) Nothing sceneItemId) rid = object [ "requestId" .= rid
-                                                                                  , "requestType" .= JSON.String "RemoveSceneItem"
-                                                                                  , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                            , "sceneItemId" .= sceneItemId
-                                                                                                            ]
-                                                                                  ]
-toRequestData (RemoveSceneItem Nothing (Just sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
-                                                                                  , "requestType" .= JSON.String "RemoveSceneItem"
-                                                                                  , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                            , "sceneItemId" .= sceneItemId
-                                                                                                            ]
-                                                                                  ]
-toRequestData (DuplicateSceneItem (Just sceneName) Nothing sceneItemId (Just destinationSceneName) Nothing) rid = object [ "requestId" .= rid
-                                                                                                                         , "requestType" .= JSON.String "DuplicateSceneItem"
-                                                                                                                         , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                                                   , "sceneItemId" .= sceneItemId
-                                                                                                                                                   , "destinationSceneName" .= destinationSceneName
-                                                                                                                                                   ]
-                                                                                                                         ]
-toRequestData (DuplicateSceneItem (Just sceneName) Nothing sceneItemId Nothing (Just destinationSceneUuid)) rid = object [ "requestId" .= rid
-                                                                                                                         , "requestType" .= JSON.String "DuplicateSceneItem"
-                                                                                                                         , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                                                   , "sceneItemId" .= sceneItemId
-                                                                                                                                                   , "destinationSceneUuid" .= destinationSceneUuid
-                                                                                                                                                   ]
-                                                                                                                         ]
-toRequestData (DuplicateSceneItem Nothing (Just sceneUuid) sceneItemId (Just destinationSceneName) Nothing) rid = object [ "requestId" .= rid
-                                                                                                                         , "requestType" .= JSON.String "DuplicateSceneItem"
-                                                                                                                         , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                                                   , "sceneItemId" .= sceneItemId
-                                                                                                                                                   , "destinationSceneName" .= destinationSceneName
-                                                                                                                                                   ]
-                                                                                                                         ]
-toRequestData (DuplicateSceneItem Nothing (Just sceneUuid) sceneItemId Nothing (Just destinationSceneUuid)) rid = object [ "requestId" .= rid
-                                                                                                                         , "requestType" .= JSON.String "DuplicateSceneItem"
-                                                                                                                         , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                                                   , "sceneItemId" .= sceneItemId
-                                                                                                                                                   , "destinationSceneUuid" .= destinationSceneUuid
-                                                                                                                                                   ]
-                                                                                                                         ]
-toRequestData (GetSceneItemTransform (Just sceneName) Nothing sceneItemId) rid = object [ "requestId" .= rid
-                                                                                        , "requestType" .= JSON.String "GetSceneItemTransform"
-                                                                                        , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                  , "sceneItemId" .= sceneItemId
-                                                                                                                  ]
-                                                                                        ]
-toRequestData (GetSceneItemTransform Nothing (Just sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
-                                                                                        , "requestType" .= JSON.String "GetSceneItemTransform"
+toRequestData (CreateSceneItem (Uuid sceneUuid) (Uuid sourceUuid) Nothing) rid = object [ "requestId" .= rid
+                                                                                        , "requestType" .= JSON.String "CreateSceneItem"
                                                                                         , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                  , "sceneItemId" .= sceneItemId
+                                                                                                                  , "sourceUuid" .= sourceUuid
                                                                                                                   ]
                                                                                         ]
-toRequestData (SetSceneItemTransform (Just sceneName) Nothing sceneItemId sceneItemTransform) rid = object [ "requestId" .= rid
-                                                                                                           , "requestType" .= JSON.String "SetSceneItemTransform"
-                                                                                                           , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                                     , "sceneItemId" .= sceneItemId
-                                                                                                                                     , "sceneItemTransform" .= sceneItemTransform
-                                                                                                                                     ]
-                                                                                                           ]
-toRequestData (SetSceneItemTransform Nothing (Just sceneUuid) sceneItemId sceneItemTransform) rid = object [ "requestId" .= rid
-                                                                                                           , "requestType" .= JSON.String "SetSceneItemTransform"
-                                                                                                           , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                                     , "sceneItemId" .= sceneItemId
-                                                                                                                                     , "sceneItemTransform" .= sceneItemTransform
-                                                                                                                                     ]
-                                                                                                           ]
-toRequestData (GetSceneItemEnabled (Just sceneName) Nothing sceneItemId) rid = object [ "requestId" .= rid
-                                                                                      , "requestType" .= JSON.String "GetSceneItemEnabled"
-                                                                                      , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                , "sceneItemId" .= sceneItemId
-                                                                                                                ]
-                                                                                      ]
-toRequestData (GetSceneItemEnabled Nothing (Just sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
-                                                                                      , "requestType" .= JSON.String "GetSceneItemEnabled"
-                                                                                      , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                , "sceneItemId" .= sceneItemId
-                                                                                                                ]
-                                                                                      ]
-toRequestData (SetSceneItemEnabled (Just sceneName) Nothing sceneItemId sceneItemEnabled) rid = object [ "requestId" .= rid
-                                                                                                        , "requestType" .= JSON.String "SetSceneItemEnabled"
-                                                                                                        , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                                  , "sceneItemId" .= sceneItemId
-                                                                                                                                  , "sceneItemEnabled" .= sceneItemEnabled
-                                                                                                                                  ]
-                                                                                                        ]
-toRequestData (SetSceneItemEnabled Nothing (Just sceneUuid) sceneItemId sceneItemEnabled) rid = object [ "requestId" .= rid
-                                                                                                        , "requestType" .= JSON.String "SetSceneItemEnabled"
-                                                                                                        , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                                  , "sceneItemId" .= sceneItemId
-                                                                                                                                  , "sceneItemEnabled" .= sceneItemEnabled
-                                                                                                                                  ]
-                                                                                                        ]
-toRequestData (GetSceneItemLocked (Just sceneName) Nothing sceneItemId) rid = object [ "requestId" .= rid
-                                                                                     , "requestType" .= JSON.String "GetSceneItemLocked"
-                                                                                     , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                               , "sceneItemId" .= sceneItemId
-                                                                                                               ]
-                                                                                     ]
-toRequestData (GetSceneItemLocked Nothing (Just sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
-                                                                                     , "requestType" .= JSON.String "GetSceneItemLocked"
-                                                                                     , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                               , "sceneItemId" .= sceneItemId
-                                                                                                               ]
-                                                                                     ]
-toRequestData (SetSceneItemLocked (Just sceneName) Nothing sceneItemId sceneItemLocked) rid = object [ "requestId" .= rid
-                                                                                                     , "requestType" .= JSON.String "SetSceneItemLocked"
-                                                                                                     , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                               , "sceneItemId" .= sceneItemId
-                                                                                                                               , "sceneItemLocked" .= sceneItemLocked
-                                                                                                                               ]
-                                                                                                     ]
-toRequestData (SetSceneItemLocked Nothing (Just sceneUuid) sceneItemId sceneItemLocked) rid = object [ "requestId" .= rid
-                                                                                                     , "requestType" .= JSON.String "SetSceneItemLocked"
-                                                                                                     , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                               , "sceneItemId" .= sceneItemId
-                                                                                                                               , "sceneItemLocked" .= sceneItemLocked
-                                                                                                                               ]
-                                                                                                     ]
-toRequestData (GetSceneItemIndex (Just sceneName) Nothing sceneItemId) rid = object [ "requestId" .= rid
-                                                                                    , "requestType" .= JSON.String "GetSceneItemIndex"
-                                                                                    , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                              , "sceneItemId" .= sceneItemId
-                                                                                                              ]
-                                                                                    ]
-toRequestData (GetSceneItemIndex Nothing (Just sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
-                                                                                    , "requestType" .= JSON.String "GetSceneItemIndex"
-                                                                                    , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                              , "sceneItemId" .= sceneItemId
-                                                                                                              ]
-                                                                                    ]
-toRequestData (SetSceneItemIndex (Just sceneName) Nothing sceneItemId sceneItemIndex) rid = object [ "requestId" .= rid
-                                                                                                   , "requestType" .= JSON.String "SetSceneItemIndex"
+toRequestData (RemoveSceneItem (Name sceneName) sceneItemId) rid = object [ "requestId" .= rid
+                                                                          , "requestType" .= JSON.String "RemoveSceneItem"
+                                                                          , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                    , "sceneItemId" .= sceneItemId
+                                                                                                    ]
+                                                                          ]
+toRequestData (RemoveSceneItem (Uuid sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
+                                                                          , "requestType" .= JSON.String "RemoveSceneItem"
+                                                                          , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                    , "sceneItemId" .= sceneItemId
+                                                                                                    ]
+                                                                          ]
+toRequestData (DuplicateSceneItem (Name sceneName) sceneItemId (Name destinationSceneName)) rid = object [ "requestId" .= rid
+                                                                                                         , "requestType" .= JSON.String "DuplicateSceneItem"
+                                                                                                         , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                                                   , "sceneItemId" .= sceneItemId
+                                                                                                                                   , "destinationSceneName" .= destinationSceneName
+                                                                                                                                   ]
+                                                                                                         ]
+toRequestData (DuplicateSceneItem (Name sceneName) sceneItemId (Uuid destinationSceneUuid)) rid = object [ "requestId" .= rid
+                                                                                                         , "requestType" .= JSON.String "DuplicateSceneItem"
+                                                                                                         , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                                                   , "sceneItemId" .= sceneItemId
+                                                                                                                                   , "destinationSceneUuid" .= destinationSceneUuid
+                                                                                                                                   ]
+                                                                                                         ]
+toRequestData (DuplicateSceneItem (Uuid sceneUuid) sceneItemId (Name destinationSceneName)) rid = object [ "requestId" .= rid
+                                                                                                         , "requestType" .= JSON.String "DuplicateSceneItem"
+                                                                                                         , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                                                   , "sceneItemId" .= sceneItemId
+                                                                                                                                   , "destinationSceneName" .= destinationSceneName
+                                                                                                                                   ]
+                                                                                                         ]
+toRequestData (DuplicateSceneItem (Uuid sceneUuid) sceneItemId (Uuid destinationSceneUuid)) rid = object [ "requestId" .= rid
+                                                                                                         , "requestType" .= JSON.String "DuplicateSceneItem"
+                                                                                                         , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                                                   , "sceneItemId" .= sceneItemId
+                                                                                                                                   , "destinationSceneUuid" .= destinationSceneUuid
+                                                                                                                                   ]
+                                                                                                         ]
+toRequestData (GetSceneItemTransform (Name sceneName) sceneItemId) rid = object [ "requestId" .= rid
+                                                                                , "requestType" .= JSON.String "GetSceneItemTransform"
+                                                                                , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                          , "sceneItemId" .= sceneItemId
+                                                                                                          ]
+                                                                                ]
+toRequestData (GetSceneItemTransform (Uuid sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
+                                                                                , "requestType" .= JSON.String "GetSceneItemTransform"
+                                                                                , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                          , "sceneItemId" .= sceneItemId
+                                                                                                          ]
+                                                                                ]
+toRequestData (SetSceneItemTransform (Name sceneName) sceneItemId sceneItemTransform) rid = object [ "requestId" .= rid
+                                                                                                   , "requestType" .= JSON.String "SetSceneItemTransform"
                                                                                                    , "requestData" .= object [ "sceneName" .= sceneName
                                                                                                                              , "sceneItemId" .= sceneItemId
-                                                                                                                             , "sceneItemIndex" .= sceneItemIndex
+                                                                                                                             , "sceneItemTransform" .= sceneItemTransform
                                                                                                                              ]
                                                                                                    ]
-toRequestData (SetSceneItemIndex Nothing (Just sceneUuid) sceneItemId sceneItemIndex) rid = object [ "requestId" .= rid
-                                                                                                   , "requestType" .= JSON.String "SetSceneItemIndex"
+toRequestData (SetSceneItemTransform (Uuid sceneUuid) sceneItemId sceneItemTransform) rid = object [ "requestId" .= rid
+                                                                                                   , "requestType" .= JSON.String "SetSceneItemTransform"
                                                                                                    , "requestData" .= object [ "sceneUuid" .= sceneUuid
                                                                                                                              , "sceneItemId" .= sceneItemId
-                                                                                                                             , "sceneItemIndex" .= sceneItemIndex
+                                                                                                                             , "sceneItemTransform" .= sceneItemTransform
                                                                                                                              ]
                                                                                                    ]
-toRequestData (GetSceneItemBlendMode (Just sceneName) Nothing sceneItemId) rid = object [ "requestId" .= rid
-                                                                                        , "requestType" .= JSON.String "GetSceneItemBlendMode"
-                                                                                        , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                  , "sceneItemId" .= sceneItemId
-                                                                                                                  ]
-                                                                                        ]
-toRequestData (GetSceneItemBlendMode Nothing (Just sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
-                                                                                        , "requestType" .= JSON.String "GetSceneItemBlendMode"
-                                                                                        , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                  , "sceneItemId" .= sceneItemId
-                                                                                                                  ]
-                                                                                        ]
-toRequestData (SetSceneItemBlendMode (Just sceneName) Nothing sceneItemId sceneItemBlendMode) rid = object [ "requestId" .= rid
-                                                                                                           , "requestType" .= JSON.String "SetSceneItemBlendMode"
-                                                                                                           , "requestData" .= object [ "sceneName" .= sceneName
-                                                                                                                                     , "sceneItemId" .= sceneItemId
-                                                                                                                                     , "sceneItemBlendMode" .= sceneItemBlendMode
-                                                                                                                                     ]
-                                                                                                           ]
-toRequestData (SetSceneItemBlendMode Nothing (Just sceneUuid) sceneItemId sceneItemBlendMode) rid = object [ "requestId" .= rid
-                                                                                                           , "requestType" .= JSON.String "SetSceneItemBlendMode"
-                                                                                                           , "requestData" .= object [ "sceneUuid" .= sceneUuid
-                                                                                                                                     , "sceneItemId" .= sceneItemId
-                                                                                                                                     , "sceneItemBlendMode" .= sceneItemBlendMode
-                                                                                                                                     ]
-                                                                                                           ]
+toRequestData (GetSceneItemEnabled (Name sceneName) sceneItemId) rid = object [ "requestId" .= rid
+                                                                              , "requestType" .= JSON.String "GetSceneItemEnabled"
+                                                                              , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                        , "sceneItemId" .= sceneItemId
+                                                                                                        ]
+                                                                              ]
+toRequestData (GetSceneItemEnabled (Uuid sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
+                                                                              , "requestType" .= JSON.String "GetSceneItemEnabled"
+                                                                              , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                        , "sceneItemId" .= sceneItemId
+                                                                                                        ]
+                                                                              ]
+toRequestData (SetSceneItemEnabled (Name sceneName) sceneItemId sceneItemEnabled) rid = object [ "requestId" .= rid
+                                                                                               , "requestType" .= JSON.String "SetSceneItemEnabled"
+                                                                                               , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                                         , "sceneItemId" .= sceneItemId
+                                                                                                                         , "sceneItemEnabled" .= sceneItemEnabled
+                                                                                                                         ]
+                                                                                               ]
+toRequestData (SetSceneItemEnabled (Uuid sceneUuid) sceneItemId sceneItemEnabled) rid = object [ "requestId" .= rid
+                                                                                               , "requestType" .= JSON.String "SetSceneItemEnabled"
+                                                                                               , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                                         , "sceneItemId" .= sceneItemId
+                                                                                                                         , "sceneItemEnabled" .= sceneItemEnabled
+                                                                                                                         ]
+                                                                                               ]
+toRequestData (GetSceneItemLocked (Name sceneName) sceneItemId) rid = object [ "requestId" .= rid
+                                                                             , "requestType" .= JSON.String "GetSceneItemLocked"
+                                                                             , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                       , "sceneItemId" .= sceneItemId
+                                                                                                       ]
+                                                                             ]
+toRequestData (GetSceneItemLocked (Uuid sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
+                                                                             , "requestType" .= JSON.String "GetSceneItemLocked"
+                                                                             , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                       , "sceneItemId" .= sceneItemId
+                                                                                                       ]
+                                                                             ]
+toRequestData (SetSceneItemLocked (Name sceneName) sceneItemId sceneItemLocked) rid = object [ "requestId" .= rid
+                                                                                             , "requestType" .= JSON.String "SetSceneItemLocked"
+                                                                                             , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                                       , "sceneItemId" .= sceneItemId
+                                                                                                                       , "sceneItemLocked" .= sceneItemLocked
+                                                                                                                       ]
+                                                                                             ]
+toRequestData (SetSceneItemLocked (Uuid sceneUuid) sceneItemId sceneItemLocked) rid = object [ "requestId" .= rid
+                                                                                             , "requestType" .= JSON.String "SetSceneItemLocked"
+                                                                                             , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                                       , "sceneItemId" .= sceneItemId
+                                                                                                                       , "sceneItemLocked" .= sceneItemLocked
+                                                                                                                       ]
+                                                                                             ]
+toRequestData (GetSceneItemIndex (Name sceneName) sceneItemId) rid = object [ "requestId" .= rid
+                                                                            , "requestType" .= JSON.String "GetSceneItemIndex"
+                                                                            , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                      , "sceneItemId" .= sceneItemId
+                                                                                                      ]
+                                                                            ]
+toRequestData (GetSceneItemIndex (Uuid sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
+                                                                            , "requestType" .= JSON.String "GetSceneItemIndex"
+                                                                            , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                      , "sceneItemId" .= sceneItemId
+                                                                                                      ]
+                                                                            ]
+toRequestData (SetSceneItemIndex (Name sceneName) sceneItemId sceneItemIndex) rid = object [ "requestId" .= rid
+                                                                                           , "requestType" .= JSON.String "SetSceneItemIndex"
+                                                                                           , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                                     , "sceneItemId" .= sceneItemId
+                                                                                                                     , "sceneItemIndex" .= sceneItemIndex
+                                                                                                                     ]
+                                                                                           ]
+toRequestData (SetSceneItemIndex (Uuid sceneUuid) sceneItemId sceneItemIndex) rid = object [ "requestId" .= rid
+                                                                                           , "requestType" .= JSON.String "SetSceneItemIndex"
+                                                                                           , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                                     , "sceneItemId" .= sceneItemId
+                                                                                                                     , "sceneItemIndex" .= sceneItemIndex
+                                                                                                                     ]
+                                                                                           ]
+toRequestData (GetSceneItemBlendMode (Name sceneName) sceneItemId) rid = object [ "requestId" .= rid
+                                                                                , "requestType" .= JSON.String "GetSceneItemBlendMode"
+                                                                                , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                          , "sceneItemId" .= sceneItemId
+                                                                                                          ]
+                                                                                ]
+toRequestData (GetSceneItemBlendMode (Uuid sceneUuid) sceneItemId) rid = object [ "requestId" .= rid
+                                                                                , "requestType" .= JSON.String "GetSceneItemBlendMode"
+                                                                                , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                          , "sceneItemId" .= sceneItemId
+                                                                                                          ]
+                                                                                ]
+toRequestData (SetSceneItemBlendMode (Name sceneName) sceneItemId sceneItemBlendMode) rid = object [ "requestId" .= rid
+                                                                                                   , "requestType" .= JSON.String "SetSceneItemBlendMode"
+                                                                                                   , "requestData" .= object [ "sceneName" .= sceneName
+                                                                                                                             , "sceneItemId" .= sceneItemId
+                                                                                                                             , "sceneItemBlendMode" .= sceneItemBlendMode
+                                                                                                                             ]
+                                                                                                   ]
+toRequestData (SetSceneItemBlendMode (Uuid sceneUuid) sceneItemId sceneItemBlendMode) rid = object [ "requestId" .= rid
+                                                                                                   , "requestType" .= JSON.String "SetSceneItemBlendMode"
+                                                                                                   , "requestData" .= object [ "sceneUuid" .= sceneUuid
+                                                                                                                             , "sceneItemId" .= sceneItemId
+                                                                                                                             , "sceneItemBlendMode" .= sceneItemBlendMode
+                                                                                                                             ]
+                                                                                                   ]
 toRequestData GetVirtualCamStatus rid = object [ "requestId" .= rid
                                                , "requestType" .= JSON.String "GetVirtualCamStatus"
                                                ]
@@ -1354,50 +1383,50 @@ toRequestData PauseRecord rid = object [ "requestId" .= rid
 toRequestData ResumeRecord rid = object [ "requestId" .= rid
                                         , "requestType" .= JSON.String "ResumeRecord"
                                         ]
-toRequestData (GetMediaInputStatus (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                          , "requestType" .= JSON.String "GetMediaInputStatus"
-                                                                          , "requestData" .= object [ "inputName" .= inputName ]
-                                                                          ]
-toRequestData (GetMediaInputStatus Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                          , "requestType" .= JSON.String "GetMediaInputStatus"
-                                                                          , "requestData" .= object [ "inputUuid" .= inputUuid ]
-                                                                          ]
-toRequestData (SetMediaInputCursor (Just inputName) Nothing mediaCursor) rid = object [ "requestId" .= rid
-                                                                                       , "requestType" .= JSON.String "SetMediaInputCursor"
+toRequestData (GetMediaInputStatus (Name inputName)) rid = object [ "requestId" .= rid
+                                                                  , "requestType" .= JSON.String "GetMediaInputStatus"
+                                                                  , "requestData" .= object [ "inputName" .= inputName ]
+                                                                  ]
+toRequestData (GetMediaInputStatus (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                                  , "requestType" .= JSON.String "GetMediaInputStatus"
+                                                                  , "requestData" .= object [ "inputUuid" .= inputUuid ]
+                                                                  ]
+toRequestData (SetMediaInputCursor (Name inputName) mediaCursor) rid = object [ "requestId" .= rid
+                                                                              , "requestType" .= JSON.String "SetMediaInputCursor"
+                                                                              , "requestData" .= object [ "inputName" .= inputName
+                                                                                                        , "mediaCursor" .= mediaCursor
+                                                                                                        ]
+                                                                              ]
+toRequestData (SetMediaInputCursor (Uuid inputUuid) mediaCursor) rid = object [ "requestId" .= rid
+                                                                              , "requestType" .= JSON.String "SetMediaInputCursor"
+                                                                              , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                        , "mediaCursor" .= mediaCursor
+                                                                                                        ]
+                                                                              ]
+toRequestData (OffsetMediaInputCursor (Name inputName) mediaCursorOffset) rid = object [ "requestId" .= rid
+                                                                                       , "requestType" .= JSON.String "OffsetMediaInputCursor"
                                                                                        , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                 , "mediaCursor" .= mediaCursor
+                                                                                                                 , "mediaCursorOffset" .= mediaCursorOffset
                                                                                                                  ]
                                                                                        ]
-toRequestData (SetMediaInputCursor Nothing (Just inputUuid) mediaCursor) rid = object [ "requestId" .= rid
-                                                                                       , "requestType" .= JSON.String "SetMediaInputCursor"
+toRequestData (OffsetMediaInputCursor (Uuid inputUuid) mediaCursorOffset) rid = object [ "requestId" .= rid
+                                                                                       , "requestType" .= JSON.String "OffsetMediaInputCursor"
                                                                                        , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                 , "mediaCursor" .= mediaCursor
+                                                                                                                 , "mediaCursorOffset" .= mediaCursorOffset
                                                                                                                  ]
                                                                                        ]
-toRequestData (OffsetMediaInputCursor (Just inputName) Nothing mediaCursorOffset) rid = object [ "requestId" .= rid
-                                                                                               , "requestType" .= JSON.String "OffsetMediaInputCursor"
-                                                                                               , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                         , "mediaCursorOffset" .= mediaCursorOffset
-                                                                                                                         ]
-                                                                                               ]
-toRequestData (OffsetMediaInputCursor Nothing (Just inputUuid) mediaCursorOffset) rid = object [ "requestId" .= rid
-                                                                                               , "requestType" .= JSON.String "OffsetMediaInputCursor"
-                                                                                               , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                         , "mediaCursorOffset" .= mediaCursorOffset
-                                                                                                                         ]
-                                                                                               ]
-toRequestData (TriggerMediaInputAction (Just inputName) Nothing mediaAction) rid = object [ "requestId" .= rid
-                                                                                          , "requestType" .= JSON.String "TriggerMediaInputAction"
-                                                                                          , "requestData" .= object [ "inputName" .= inputName
-                                                                                                                    , "mediaAction" .= mediaAction
-                                                                                                                    ]
-                                                                                          ]
-toRequestData (TriggerMediaInputAction Nothing (Just inputUuid) mediaAction) rid = object [ "requestId" .= rid
-                                                                                          , "requestType" .= JSON.String "TriggerMediaInputAction"
-                                                                                          , "requestData" .= object [ "inputUuid" .= inputUuid
-                                                                                                                    , "mediaAction" .= mediaAction
-                                                                                                                    ]
-                                                                                          ]
+toRequestData (TriggerMediaInputAction (Name inputName) mediaAction) rid = object [ "requestId" .= rid
+                                                                                  , "requestType" .= JSON.String "TriggerMediaInputAction"
+                                                                                  , "requestData" .= object [ "inputName" .= inputName
+                                                                                                            , "mediaAction" .= mediaAction
+                                                                                                            ]
+                                                                                  ]
+toRequestData (TriggerMediaInputAction (Uuid inputUuid) mediaAction) rid = object [ "requestId" .= rid
+                                                                                  , "requestType" .= JSON.String "TriggerMediaInputAction"
+                                                                                  , "requestData" .= object [ "inputUuid" .= inputUuid
+                                                                                                            , "mediaAction" .= mediaAction
+                                                                                                            ]
+                                                                                  ]
 toRequestData GetStudioModeEnabled rid = object [ "requestId" .= rid
                                                 , "requestType" .= JSON.String "GetStudioModeEnabled"
                                                 ]
@@ -1405,30 +1434,30 @@ toRequestData (SetStudioModeEnabled studioModeEnabled) rid = object [ "requestId
                                                                     , "requestType" .= JSON.String "SetStudioModeEnabled"
                                                                     , "requestData" .= object [ "studioModeEnabled" .= studioModeEnabled ]
                                                                     ]
-toRequestData (OpenInputPropertiesDialog (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                                , "requestType" .= JSON.String "OpenInputPropertiesDialog"
-                                                                                , "requestData" .= object [ "inputName" .= inputName ]
-                                                                                ]
-toRequestData (OpenInputPropertiesDialog Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                                , "requestType" .= JSON.String "OpenInputPropertiesDialog"
-                                                                                , "requestData" .= object [ "inputUuid" .= inputUuid ]
-                                                                                ]
-toRequestData (OpenInputFiltersDialog (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                             , "requestType" .= JSON.String "OpenInputFiltersDialog"
-                                                                             , "requestData" .= object [ "inputName" .= inputName ]
-                                                                             ]
-toRequestData (OpenInputFiltersDialog Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                             , "requestType" .= JSON.String "OpenInputFiltersDialog"
-                                                                             , "requestData" .= object [ "inputUuid" .= inputUuid ]
-                                                                             ]
-toRequestData (OpenInputInteractDialog (Just inputName) Nothing) rid = object [ "requestId" .= rid
-                                                                              , "requestType" .= JSON.String "OpenInputInteractDialog"
-                                                                              , "requestData" .= object [ "inputName" .= inputName ]
-                                                                              ]
-toRequestData (OpenInputInteractDialog Nothing (Just inputUuid)) rid = object [ "requestId" .= rid
-                                                                              , "requestType" .= JSON.String "OpenInputInteractDialog"
-                                                                              , "requestData" .= object [ "inputUuid" .= inputUuid ]
-                                                                              ]
+toRequestData (OpenInputPropertiesDialog (Name inputName)) rid = object [ "requestId" .= rid
+                                                                        , "requestType" .= JSON.String "OpenInputPropertiesDialog"
+                                                                        , "requestData" .= object [ "inputName" .= inputName ]
+                                                                        ]
+toRequestData (OpenInputPropertiesDialog (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                                        , "requestType" .= JSON.String "OpenInputPropertiesDialog"
+                                                                        , "requestData" .= object [ "inputUuid" .= inputUuid ]
+                                                                        ]
+toRequestData (OpenInputFiltersDialog (Name inputName)) rid = object [ "requestId" .= rid
+                                                                     , "requestType" .= JSON.String "OpenInputFiltersDialog"
+                                                                     , "requestData" .= object [ "inputName" .= inputName ]
+                                                                     ]
+toRequestData (OpenInputFiltersDialog (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                                     , "requestType" .= JSON.String "OpenInputFiltersDialog"
+                                                                     , "requestData" .= object [ "inputUuid" .= inputUuid ]
+                                                                     ]
+toRequestData (OpenInputInteractDialog (Name inputName)) rid = object [ "requestId" .= rid
+                                                                      , "requestType" .= JSON.String "OpenInputInteractDialog"
+                                                                      , "requestData" .= object [ "inputName" .= inputName ]
+                                                                      ]
+toRequestData (OpenInputInteractDialog (Uuid inputUuid)) rid = object [ "requestId" .= rid
+                                                                      , "requestType" .= JSON.String "OpenInputInteractDialog"
+                                                                      , "requestData" .= object [ "inputUuid" .= inputUuid ]
+                                                                      ]
 toRequestData GetMonitorList rid = object [ "requestId" .= rid
                                           , "requestType" .= JSON.String "GetMonitorList"
                                           ]
@@ -1455,52 +1484,52 @@ toRequestData (OpenVideoMixProjector videoMixType Nothing Nothing) rid = object 
                                                                                 , "requestType" .= JSON.String "OpenVideoMixProjector"
                                                                                 , "requestData" .= object [ "videoMixType" .= videoMixType ]
                                                                                 ]
-toRequestData (OpenSourceProjector (Just sourceName) Nothing (Just monitorIndex) (Just projectorGeometry)) rid = object [ "requestId" .= rid
-                                                                                                                        , "requestType" .= JSON.String "OpenSourceProjector"
-                                                                                                                        , "requestData" .= object [ "sourceName" .= sourceName
-                                                                                                                                                  , "monitorIndex" .= monitorIndex
-                                                                                                                                                  , "projectorGeometry" .= projectorGeometry
-                                                                                                                                                  ]
-                                                                                                                        ]
-toRequestData (OpenSourceProjector (Just sourceName) Nothing (Just monitorIndex) Nothing) rid = object [ "requestId" .= rid
-                                                                                                                        , "requestType" .= JSON.String "OpenSourceProjector"
-                                                                                                                        , "requestData" .= object [ "sourceName" .= sourceName
-                                                                                                                                                  , "monitorIndex" .= monitorIndex
-                                                                                                                                                  ]
-                                                                                                                        ]
-toRequestData (OpenSourceProjector (Just sourceName) Nothing Nothing (Just projectorGeometry)) rid = object [ "requestId" .= rid
-                                                                                                            , "requestType" .= JSON.String "OpenSourceProjector"
-                                                                                                            , "requestData" .= object [ "sourceName" .= sourceName
-                                                                                                                                      , "projectorGeometry" .= projectorGeometry
-                                                                                                                                      ]
-                                                                                                            ]
-toRequestData (OpenSourceProjector (Just sourceName) Nothing Nothing Nothing) rid = object [ "requestId" .= rid
-                                                                                           , "requestType" .= JSON.String "OpenSourceProjector"
-                                                                                           , "requestData" .= object [ "sourceName" .= sourceName ]
-                                                                                           ]
-toRequestData (OpenSourceProjector Nothing (Just sourceUuid) (Just monitorIndex) (Just projectorGeometry)) rid = object [ "requestId" .= rid
-                                                                                                                        , "requestType" .= JSON.String "OpenSourceProjector"
-                                                                                                                        , "requestData" .= object [ "sourceUuid" .= sourceUuid
-                                                                                                                                                  , "monitorIndex" .= monitorIndex
-                                                                                                                                                  , "projectorGeometry" .= projectorGeometry
-                                                                                                                                                  ]
-                                                                                                                        ]
-toRequestData (OpenSourceProjector Nothing (Just sourceUuid) (Just monitorIndex) Nothing) rid = object [ "requestId" .= rid
-                                                                                                                        , "requestType" .= JSON.String "OpenSourceProjector"
-                                                                                                                        , "requestData" .= object [ "sourceUuid" .= sourceUuid
-                                                                                                                                                  , "monitorIndex" .= monitorIndex
-                                                                                                                                                  ]
-                                                                                                                        ]
-toRequestData (OpenSourceProjector Nothing (Just sourceUuid) Nothing (Just projectorGeometry)) rid = object [ "requestId" .= rid
-                                                                                                            , "requestType" .= JSON.String "OpenSourceProjector"
-                                                                                                            , "requestData" .= object [ "sourceUuid" .= sourceUuid
-                                                                                                                                      , "projectorGeometry" .= projectorGeometry
-                                                                                                                                      ]
-                                                                                                            ]
-toRequestData (OpenSourceProjector Nothing (Just sourceUuid) Nothing Nothing) rid = object [ "requestId" .= rid
-                                                                                           , "requestType" .= JSON.String "OpenSourceProjector"
-                                                                                           , "requestData" .= object [ "sourceUuid" .= sourceUuid ]
-                                                                                           ]
+toRequestData (OpenSourceProjector (Name sourceName) (Just monitorIndex) (Just projectorGeometry)) rid = object [ "requestId" .= rid
+                                                                                                                , "requestType" .= JSON.String "OpenSourceProjector"
+                                                                                                                , "requestData" .= object [ "sourceName" .= sourceName
+                                                                                                                                          , "monitorIndex" .= monitorIndex
+                                                                                                                                          , "projectorGeometry" .= projectorGeometry
+                                                                                                                                          ]
+                                                                                                                ]
+toRequestData (OpenSourceProjector (Name sourceName) (Just monitorIndex) Nothing) rid = object [ "requestId" .= rid
+                                                                                               , "requestType" .= JSON.String "OpenSourceProjector"
+                                                                                               , "requestData" .= object [ "sourceName" .= sourceName
+                                                                                                                         , "monitorIndex" .= monitorIndex
+                                                                                                                         ]
+                                                                                               ]
+toRequestData (OpenSourceProjector (Name sourceName) Nothing (Just projectorGeometry)) rid = object [ "requestId" .= rid
+                                                                                                    , "requestType" .= JSON.String "OpenSourceProjector"
+                                                                                                    , "requestData" .= object [ "sourceName" .= sourceName
+                                                                                                                              , "projectorGeometry" .= projectorGeometry
+                                                                                                                              ]
+                                                                                                    ]
+toRequestData (OpenSourceProjector (Name sourceName) Nothing Nothing) rid = object [ "requestId" .= rid
+                                                                                   , "requestType" .= JSON.String "OpenSourceProjector"
+                                                                                   , "requestData" .= object [ "sourceName" .= sourceName ]
+                                                                                   ]
+toRequestData (OpenSourceProjector (Uuid sourceUuid) (Just monitorIndex) (Just projectorGeometry)) rid = object [ "requestId" .= rid
+                                                                                                                , "requestType" .= JSON.String "OpenSourceProjector"
+                                                                                                                , "requestData" .= object [ "sourceUuid" .= sourceUuid
+                                                                                                                                          , "monitorIndex" .= monitorIndex
+                                                                                                                                          , "projectorGeometry" .= projectorGeometry
+                                                                                                                                          ]
+                                                                                                                ]
+toRequestData (OpenSourceProjector (Uuid sourceUuid) (Just monitorIndex) Nothing) rid = object [ "requestId" .= rid
+                                                                                               , "requestType" .= JSON.String "OpenSourceProjector"
+                                                                                               , "requestData" .= object [ "sourceUuid" .= sourceUuid
+                                                                                                                         , "monitorIndex" .= monitorIndex
+                                                                                                                         ]
+                                                                                               ]
+toRequestData (OpenSourceProjector (Uuid sourceUuid) Nothing (Just projectorGeometry)) rid = object [ "requestId" .= rid
+                                                                                                    , "requestType" .= JSON.String "OpenSourceProjector"
+                                                                                                    , "requestData" .= object [ "sourceUuid" .= sourceUuid
+                                                                                                                              , "projectorGeometry" .= projectorGeometry
+                                                                                                                              ]
+                                                                                                    ]
+toRequestData (OpenSourceProjector (Uuid sourceUuid) Nothing Nothing) rid = object [ "requestId" .= rid
+                                                                                   , "requestType" .= JSON.String "OpenSourceProjector"
+                                                                                   , "requestData" .= object [ "sourceUuid" .= sourceUuid ]
+                                                                                   ]
 
 data EventType = General
                | Config
@@ -1538,40 +1567,32 @@ eventNum SceneItemTransformChanged = 0x80000
 eventMask :: [EventType] -> Integer
 eventMask = foldl (.|.) 0 . fmap eventNum
 
-data ClientMessage = Identify { clientRPCVersion :: Integer
-                              , authenticationRequest :: Maybe String
-                              , eventSubscriptions :: [EventType]
-                              }
-                   | Reidentify { newEventSubscriptions :: [EventType] }
-                   | Request { requestData :: RequestData
-                             , requestId :: String
-                             }
-                   | RequestBatch { batchRequestId :: String
-                                  , haltOnFailure :: Maybe Bool
-                                  , executionType :: Maybe Integer
-                                  , requests :: [JSON.Value]
-                                  } deriving ( Show )
+data ClientMessage = Identify Integer [EventType] (Maybe String)
+                   | Reidentify [EventType]
+                   | Request String RequestData
+                   | RequestBatch String Bool (Maybe Integer) [ClientMessage]
+                   deriving ( Show )
 
 instance ToJSON ClientMessage where
-    toJSON Identify{..} =
+    toJSON (Identify clientRPCVersion eventSubscriptions authenticationRequest) =
         object [ "op" .= (1 :: Integer)
                , "d" .= object [ "rpcVersion" .= clientRPCVersion
-                               , "authentication" .= authenticationRequest
                                , "eventSubscriptions" .= eventMask eventSubscriptions
+                               , "authentication" .= authenticationRequest
                                ]
                ]
-    toJSON Reidentify{..} =
+    toJSON (Reidentify newEventSubscriptions) =
         object [ "op" .= (3 :: Integer)
                , "d" .= object [ "eventSubscriptions" .= eventMask newEventSubscriptions
                                ]
                ]
-    toJSON Request{..} =
+    toJSON (Request requestId requestData) =
         object [ "op" .= (6 :: Integer)
                , "d" .= toRequestData requestData requestId
                ]
-    toJSON RequestBatch{..} =
+    toJSON (RequestBatch requestId haltOnFailure executionType requests) =
         object [ "op" .= (8 :: Integer)
-               , "d" .= object [ "requestId" .= batchRequestId
+               , "d" .= object [ "requestId" .= requestId
                                , "haltOnFailure" .= haltOnFailure
                                , "executiontype" .= executionType
                                , "requests" .= requests

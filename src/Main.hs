@@ -26,11 +26,12 @@ app password conn = do
     _ <- WS.sendTextData conn . Text.toStrict . Text.decodeUtf8 . JSON.encode $ authenticate password x
     (y :: Maybe OBS.Message) <- WS.receiveData conn <&> JSON.decode
     liftIO $ print y
-    _ <- WS.sendTextData conn . Text.toStrict . Text.decodeUtf8 . JSON.encode $ Just Client.Reidentify { Client.newEventSubscriptions = [ ] }
     _ <- WS.sendTextData conn . Text.toStrict . Text.decodeUtf8 . JSON.encode $
-        Just Client.Request { Client.requestId = "Hello", Client.requestData = Client.SetRecordDirectory "/home/wuest/Videos" }
+        Just (Client.Reidentify [ ])
+    WS.sendTextData conn . Text.toStrict . Text.decodeUtf8 . JSON.encode $
+        Just (Client.Request "Hello" Client.ToggleRecord)
 
-    eatMyData conn -- debugging :')
+    --eatMyData conn -- debugging :')
 
 eatMyData :: WS.Connection -> IO ()
 eatMyData conn = do
@@ -43,15 +44,9 @@ eatMyData conn = do
 
 authenticate :: Maybe String -> Maybe OBS.Message -> Maybe Client.ClientMessage
 authenticate (Just pass) (Just (OBS.Hello OBS.HelloMessage { OBS.authenticationChallenge = Just (OBS.AuthChallenge { OBS.challenge = challenge, OBS.salt = salt }) })) =
-    Just Client.Identify { Client.clientRPCVersion = 1
-                         , Client.authenticationRequest = Just $ Client.genAuthString salt challenge pass
-                         , Client.eventSubscriptions = []
-                         }
+    Just (Client.Identify 1 [ ] (Just $ Client.genAuthString salt challenge pass))
 authenticate _ (Just (OBS.Hello OBS.HelloMessage { OBS.authenticationChallenge = Nothing })) =
-    Just Client.Identify { Client.clientRPCVersion = 1
-                         , Client.authenticationRequest = Nothing
-                         , Client.eventSubscriptions = []
-                         }
+    Just (Client.Identify 1 [ ] Nothing)
 authenticate _ _ = Nothing
 
 main :: IO ()
