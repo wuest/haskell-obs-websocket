@@ -10,7 +10,7 @@ jobs:
   build:
     strategy:
       matrix:
-        ghc: ['8.6', '8.10', '9.0']
+        ghc: ['8.8', '8.10', '9.0']
         os: ['ubuntu-latest']
     runs-on: ${{ matrix.os }}
     name: Build obs-websocket using GHC ${{ matrix.ghc }}

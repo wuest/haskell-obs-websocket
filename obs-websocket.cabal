@@ -53,7 +53,7 @@ executable obs-ws
                     , Web.OBSWebSocket.API.Client
                     , Web.OBSWebSocket.API.Server
 
-  build-depends: base                 >= 4.9  && < 5
+  build-depends: base                 >= 4.13  && < 5
                , aeson                >= 2.1  && < 2.3
                , SHA                  >= 1.6  && < 1.7
                , base64-bytestring    >= 1.2  && < 1.3
